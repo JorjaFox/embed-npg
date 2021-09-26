@@ -10,8 +10,8 @@ You can test if it's working on [http://debug.iframely.com/](iFramely).
 
 ## What works:
 
-* Embedding a single image
-* Embedding an album
+* Embedding a single image - not as a photo though
+* Embedding an album - does not show multiple thumbnails
 
 ## What isn't there (yet):
 
@@ -21,8 +21,9 @@ You can test if it's working on [http://debug.iframely.com/](iFramely).
 * Customizing the output (i.e. allow a theme to override design)
 * Embed for the main gallery page (you want to do this for every page if you're making a full oembed)
 * A full on API (i.e. you can't use example.com/oembed?url=URL_TO_EMBED)
+* Proper iframe security (I'm having trouble making it work right - if I lock it down, links don't open anymore)
 
-I am a _terrible_ designer so I did not make more than a usable first pass for embeds.
+I am a _terrible_ designer so I did not make more than a usable first pass for the visual on the embeds.
 
 ## Notes
 
