@@ -217,22 +217,8 @@ class FLF_NGP_OEmbed {
 			$thumbnail_url = $thumb_image->getThumb();
 		}
 
-		// Number of images in album AND number of subalbums
-		$counts = '';
-
-		if ( $album->getNumAlbums() !== 0 ) {
-			$counts .= $album->getNumAlbums() . ' sub-albums. ';
-		}
-		if ( $album->getNumImages() !== 0 ) {
-			$counts .= $album->getNumImages() . ' images.';
-		}
-
-		// Format for later.
-		$counts = ( empty( $counts ) ) ? '' : '<p>' . $counts . '</p>';
-
-		// Dates
-		$date_created = $album->getDateTime();
-		$date_updated = $album->getUpdatedDate();
+		// Album URL
+		$album_url = FULLHOSTPATH . $album->getLink();
 
 		// If there are NO images, we show the album details
 		if ( $album->getNumImages() === 0 ) {
@@ -250,26 +236,28 @@ class FLF_NGP_OEmbed {
 			foreach ( $album->getImages( $_current_image ) as $filename ) {
 
 				// If we have more than six images, we stop.
-				if ( $i >= 6 ) {
+				if ( $i > 6 ) {
 					break;
 				}
 
 				// Create Image Object and get thumb:
 				$image    = newImage( $album, $filename );
-				$images[] = $image->getThumb();
+				$images[] = array(
+					'thumb' => $image->getThumb(),
+					'url'   => $image->getLink(),
+				);
 
 				// Bump $i
 				$i++;
 			}
 
 			if ( $images ) {
-
 				// Start the build...
 				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
 
 				// for each image, we want to craft the output.
-				foreach ( $images as $thumbnail ) {
-					$description .= '<img class="npg-embed-image" src="' . html_encode( $nextalbum->getThumb() ) . '" />';
+				foreach ( $images as $one_image ) {
+					$description .= '<a href="' . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
 				}
 
 				$description .= '</div></div>';
@@ -278,12 +266,29 @@ class FLF_NGP_OEmbed {
 			$gallery = true;
 		}
 
-		$description .= '<p>' . $album->getDesc() . '</p>' . $counts . '<p>Created ' . $date_created . ' // Updated: ' . $date_updated . '</p>';
+		// Build the count of images and subalbums ...
+		if ( (int) $album->getNumAlbums() !== 0 || (int) $album->getNumImages() !== 0 ) {
+			$counts = '<p>This gallery contains ';
+			if ( (int) $album->getNumAlbums() !== 0 ) {
+				$counts .= $album->getNumAlbums() . ' sub-albums';
+			}
+			if ( (int) $album->getNumAlbums() !== 0 && (int) $album->getNumImages() !== 0 ) {
+				$counts .= ' and ';
+			}
+			if ( (int) $album->getNumImages() !== 0 ) {
+				$counts .= $album->getNumImages() . ' images';
+			}
+			$counts = ( $gallery ) ? $counts . '. Only 6 are shown here. Check out the <strong><a href="' . $album_url . '" target="_top">full album</a></strong> to see more.' : $counts . '</p>';
+		} else {
+			$counts = '';
+		}
+
+		$description .= '<p>' . $album->getDesc() . '</p>' . $counts;
 
 		// Array with the data we need:
 		$ret = array(
-			'url_thumb'  => FULLHOSTPATH . $thumbnail_url,
-			'url'        => FULLHOSTPATH . $album->getLink(),
+			'url_thumb'  => $thumbnail_url,
+			'url'        => $album_url,
 			'thumb_size' => getSizeDefaultThumb(),
 			'width'      => (int) getOption( 'image_size' ),
 			'height'     => floor( ( getOption( 'image_size' ) * 24 ) / 36 ),
@@ -464,6 +469,18 @@ class FLF_NGP_OEmbed {
 
 		$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
 
+		// Featured Image depends on this being a gallery or not...
+		if ( false === $ret['gallery'] ) {
+			$featured_image = '<div class="npg-embed-featured-image square">
+				<a href="' . $ret['url'] . '" target="_top">
+					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
+				</a>
+			</div>';
+		} else {
+			$featured_image = '';
+		}
+
+		// Build the iframe.
 		$iframe = '<!DOCTYPE html>
 			<html lang="en-US" class="no-js">
 			<head>
@@ -478,12 +495,7 @@ class FLF_NGP_OEmbed {
 			</head>
 			<body class="npg npg-embed-responsive">
 				<div class="npg-embed">
-					<div class="npg-embed-featured-image square">
-						<a href="' . $ret['url'] . '" target="_top">
-							<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
-						</a>
-					</div>
-
+					' . $featured_image . '
 					<p class="npg-embed-heading">
 						<a href="' . $ret['url'] . '" target="_top">' . $ret['title'] . '</a>
 					</p>
@@ -500,11 +512,11 @@ class FLF_NGP_OEmbed {
 							</a>
 						</div>
 						<div class="npg-embed-meta">
+							<!--
 							<div class="npg-embed-share">
-								<!--
 								<button type="button" class="npg-embed-share-dialog-open" aria-label="Open sharing dialog">' . $ret['share_code'] . '</button>
-								-->
 							</div>
+							-->
 						</div>
 					</div>
 				</div>
@@ -533,10 +545,8 @@ class FLF_NGP_OEmbed {
 		.npg-embed-site-title a{position:relative;display:inline-block;padding-left:35px}
 		.npg-embed-meta,.npg-embed-site-title{display:table-cell}
 		.npg-embed-meta{text-align:right;white-space:nowrap;vertical-align:middle}
-		.npg-embed-comments,.npg-embed-share{display:inline}
+		.npg-embed-image{ max-width: 100px; margin: 10px;}
 		.npg-embed-meta a:hover{text-decoration:none;color:#2271b1}
-		.npg-embed-comments a{line-height:1.78571428;display:inline-block}
-		.npg-embed-comments+.npg-embed-share{margin-left:10px}
 		.npg-embed-share-dialog{position:absolute;top:0;left:0;right:0;bottom:0;background-color:#1d2327;background-color:rgba(0,0,0,.9);color:#fff;opacity:1;transition:opacity .25s ease-in-out}
 		.npg-embed-share-dialog.hidden{opacity:0;visibility:hidden}
 		.npg-embed-share-dialog-close,.npg-embed-share-dialog-open{margin:-8px 0 0;padding:0;background:0 0;border:none;cursor:pointer;outline:0}
@@ -555,7 +565,8 @@ class FLF_NGP_OEmbed {
 		.npg-embed-share-tab-button button:hover{color:#fff}
 		.npg-embed-share-tab-button+.npg-embed-share-tab-button{margin:0 0 0 10px;padding:0 0 0 11px;border-left:1px solid #a7aaad}
 		.npg-embed-share-tab[aria-hidden=true]{display:none}p.npg-embed-share-description{margin:0;font-size:14px;line-height:1;font-style:italic;color:#a7aaad}
-		.npg-embed-share-input{box-sizing:border-box;width:100%;border:none;height:28px;margin:0 0 10px 0;padding:0 5px;font-size:14px;font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;line-height:1.5;resize:none;cursor:text}textarea.npg-embed-share-input{height:72px}html[dir=rtl] .npg-embed-featured-image.square{float:right;margin-right:0;margin-left:20px}html[dir=rtl] .npg-embed-site-title a{padding-left:0;padding-right:35px}html[dir=rtl] .npg-embed-site-icon{margin-right:0;margin-left:10px;left:auto;right:0}html[dir=rtl] .npg-embed-meta{text-align:left}html[dir=rtl] .npg-embed-share{margin-left:0;margin-right:10px}html[dir=rtl] .npg-embed-share-dialog-close{right:auto;left:20px}html[dir=rtl] .npg-embed-share-tab-button+.npg-embed-share-tab-button{margin:0 10px 0 0;padding:0 11px 0 0;border-left:none;border-right:1px solid #a7aaad}';
+		.npg-embed-share-input{box-sizing:border-box;width:100%;border:none;height:28px;margin:0 0 10px 0;padding:0 5px;font-size:14px;font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;line-height:1.5;resize:none;cursor:text}textarea.npg-embed-share-input{height:72px}html[dir=rtl] .npg-embed-featured-image.square{float:right;margin-right:0;margin-left:20px}html[dir=rtl] .npg-embed-site-title a{padding-left:0;padding-right:35px}html[dir=rtl] .npg-embed-site-icon{margin-right:0;margin-left:10px;left:auto;right:0}html[dir=rtl] .npg-embed-meta{text-align:left}html[dir=rtl] .npg-embed-share{margin-left:0;margin-right:10px}html[dir=rtl] .npg-embed-share-dialog-close{right:auto;left:20px}html[dir=rtl] .npg-embed-share-tab-button+.npg-embed-share-tab-button{margin:0 10px 0 0;padding:0 11px 0 0;border-left:none;border-right:1px solid #a7aaad}
+		';
 
 		return $css;
 	}
