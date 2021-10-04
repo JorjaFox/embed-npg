@@ -42,6 +42,11 @@ if (defined('SETUP_PLUGIN')) {
 	$plugin_disable = ( version_compare(PHP_VERSION, '5.4') >= 0 ) ? false : gettext('embed-npg requires PHP 5.4 or greater.');
 }
 
+//	rewrite rules for cleaner URLs
+$_conf_vars['special_pages'][] = array('rewrite' => '^oembed/(.*)/*$',
+		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
+$_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
+		'rule' => '%REWRITE% $1?json-oembed [NC,L,QSA]');
 
 // Handle REST API calls before anything else
 // This is necessary because it sets response headers
@@ -397,8 +402,7 @@ class FLF_NGP_OEmbed {
 	public static function use_default_iframe($ret) {
 		global $_gallery;
 
-		$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
-
+		$gallery_icon = getPlugin('oembed/images/oembed-icon.png', TRUE, FULLWEBPATH);
 		$iframe = '<!DOCTYPE html>
 			<html lang="en-US" class="no-js">
 			<head>
