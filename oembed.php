@@ -258,7 +258,7 @@ class FLF_NGP_OEmbed {
 
 				// for each image, we want to craft the output.
 				foreach ( $images as $one_image ) {
-					$description .= '<a href="' . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
 				}
 
 				$description .= '</div></div>';
@@ -468,11 +468,10 @@ class FLF_NGP_OEmbed {
 		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
-		/*
-		if ( fileexists() ) {
+		// Allow override for icon
+		if ( file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png') ) {
 			$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
 		}
-		*/
 
 		// Featured Image depends on this being a gallery or not...
 		if ( false === $ret['gallery'] ) {
