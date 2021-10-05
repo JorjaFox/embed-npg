@@ -39,9 +39,13 @@ if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
 	$plugin_author = 'Mika Epstein (ipstenu), Dean Moses (deanmoses)';
 	$plugin_version = '0.0.1';
-	$plugin_disable = ( version_compare(PHP_VERSION, '5.4') >= 0 ) ? false : gettext('embed-npg requires PHP 5.4 or greater.');
 }
 
+//	rewrite rules for cleaner URLs
+$_conf_vars['special_pages'][] = array('rewrite' => '^oembed/(.*)/*$',
+		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
+$_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
+		'rule' => '%REWRITE% $1?json-oembed [NC,L,QSA]');
 
 // Handle REST API calls before anything else
 // This is necessary because it sets response headers
@@ -397,18 +401,19 @@ class FLF_NGP_OEmbed {
 	public static function use_default_iframe($ret) {
 		global $_gallery;
 
-		$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
-
+		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
+		ob_start();
+		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
+		$iFrame_css = ob_get_clean();
+		ob_end_clean();
 		$iframe = '<!DOCTYPE html>
 			<html lang="en-US" class="no-js">
 			<head>
 				<title>' . $ret['title'] . ' | ' . html_encode(getGalleryTitle()) . '</title>
 				<base target="_top" />
 				<meta http-equiv="X-UA-Compatible" content="IE=edge">
-				<style>
-					' . self::get_iframe_css() . '
-				</style>
-				<meta name="robots" content="noindex, follow"/>
+				' . $iFrame_css .
+						'				<meta name="robots" content="noindex, follow"/>
 				<link rel="canonical" href="' . $ret['url'] . '" />
 			</head>
 			<body class="npg npg-embed-responsive">
@@ -446,53 +451,6 @@ class FLF_NGP_OEmbed {
 			</body>
 			</html>';
 		return $iframe;
-	}
-
-	public static function get_iframe_css() {
-		$css = 'body,html{padding:0;margin:0}
-		body{font-family:sans-serif}
-		.screen-reader-text{border:0;clip:rect(1px,1px,1px,1px);-webkit-clip-path:inset(50%);clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-wrap:normal!important}
-		.npg-embed{padding:25px;font-size:14px;font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;line-height:1.5;color:#8c8f94;background:#fff;border:1px solid #dcdcde;box-shadow:0 1px 1px rgba(0,0,0,.05);overflow:auto;zoom:1}
-		.npg-embed a{color:#8c8f94;text-decoration:none}
-		.npg-embed a:hover{text-decoration:underline}
-		.npg-embed-featured-image{margin-bottom:20px}
-		.npg-embed-featured-image img{width:100%;height:auto;border:none}
-		.npg-embed-featured-image.square{float:left;max-width:160px;margin-right:20px}
-		.npg-embed p{margin:0 0 10px 0}
-		p.npg-embed-heading{margin:0 0 15px;font-weight:600;font-size:22px;line-height:1.3}
-		.npg-embed-heading a{color:#2c3338}
-		.npg-embed .npg-embed-more{color:#c3c4c7}
-		.npg-embed-footer{display:table;width:100%;margin-top:30px}
-		.npg-embed-site-icon{position:absolute;top:50%;left:0;transform:translateY(-50%);height:25px;width:25px;border:0}
-		.npg-embed-site-title{font-weight:600;line-height:1.78571428}
-		.npg-embed-site-title a{position:relative;display:inline-block;padding-left:35px}
-		.npg-embed-meta,.npg-embed-site-title{display:table-cell}
-		.npg-embed-meta{text-align:right;white-space:nowrap;vertical-align:middle}
-		.npg-embed-comments,.npg-embed-share{display:inline}
-		.npg-embed-meta a:hover{text-decoration:none;color:#2271b1}
-		.npg-embed-comments a{line-height:1.78571428;display:inline-block}
-		.npg-embed-comments+.npg-embed-share{margin-left:10px}
-		.npg-embed-share-dialog{position:absolute;top:0;left:0;right:0;bottom:0;background-color:#1d2327;background-color:rgba(0,0,0,.9);color:#fff;opacity:1;transition:opacity .25s ease-in-out}
-		.npg-embed-share-dialog.hidden{opacity:0;visibility:hidden}
-		.npg-embed-share-dialog-close,.npg-embed-share-dialog-open{margin:-8px 0 0;padding:0;background:0 0;border:none;cursor:pointer;outline:0}
-		.npg-embed-share-dialog-close .dashicons,.npg-embed-share-dialog-open .dashicons{padding:4px}
-		.npg-embed-share-dialog-open .dashicons{top:8px}
-		.npg-embed-share-dialog-close:focus .dashicons,.npg-embed-share-dialog-open:focus .dashicons{box-shadow:0 0 0 1px #4f94d4,0 0 2px 1px rgba(79,148,212,.8);border-radius:100%}
-		.npg-embed-share-dialog-close{position:absolute;top:20px;right:20px;font-size:22px}
-		.npg-embed-share-dialog-close:hover{text-decoration:none}
-		.npg-embed-share-dialog-close .dashicons{height:24px;width:24px;background-size:24px}
-		.npg-embed-share-dialog-content{height:100%;transform-style:preserve-3d;overflow:hidden}
-		.npg-embed-share-dialog-text{margin-top:25px;padding:20px}
-		.npg-embed-share-tabs{margin:0 0 20px;padding:0;list-style:none}
-		.npg-embed-share-tab-button{display:inline-block}
-		.npg-embed-share-tab-button button{margin:0;padding:0;border:none;background:0 0;font-size:16px;line-height:1.3;color:#a7aaad;cursor:pointer;transition:color .1s ease-in}
-		.npg-embed-share-tab-button [aria-selected=true]{color:#fff}
-		.npg-embed-share-tab-button button:hover{color:#fff}
-		.npg-embed-share-tab-button+.npg-embed-share-tab-button{margin:0 0 0 10px;padding:0 0 0 11px;border-left:1px solid #a7aaad}
-		.npg-embed-share-tab[aria-hidden=true]{display:none}p.npg-embed-share-description{margin:0;font-size:14px;line-height:1;font-style:italic;color:#a7aaad}
-		.npg-embed-share-input{box-sizing:border-box;width:100%;border:none;height:28px;margin:0 0 10px 0;padding:0 5px;font-size:14px;font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;line-height:1.5;resize:none;cursor:text}textarea.npg-embed-share-input{height:72px}html[dir=rtl] .npg-embed-featured-image.square{float:right;margin-right:0;margin-left:20px}html[dir=rtl] .npg-embed-site-title a{padding-left:0;padding-right:35px}html[dir=rtl] .npg-embed-site-icon{margin-right:0;margin-left:10px;left:auto;right:0}html[dir=rtl] .npg-embed-meta{text-align:left}html[dir=rtl] .npg-embed-share{margin-left:0;margin-right:10px}html[dir=rtl] .npg-embed-share-dialog-close{right:auto;left:20px}html[dir=rtl] .npg-embed-share-tab-button+.npg-embed-share-tab-button{margin:0 10px 0 0;padding:0 11px 0 0;border-left:none;border-right:1px solid #a7aaad}';
-
-		return $css;
 	}
 
 }
