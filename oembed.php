@@ -401,7 +401,7 @@ class FLF_NGP_OEmbed {
 	public static function use_default_iframe($ret) {
 		global $_gallery;
 
-		$gallery_icon = getPlugin('oembed/oembed-icon.png', TRUE, FULLWEBPATH);
+		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
 		$iFrame_css = ob_get_clean();
