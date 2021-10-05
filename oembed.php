@@ -39,7 +39,6 @@ if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
 	$plugin_author = 'Mika Epstein (ipstenu), Dean Moses (deanmoses)';
 	$plugin_version = '0.0.1';
-	$plugin_disable = ( version_compare(PHP_VERSION, '5.4') >= 0 ) ? false : gettext('embed-npg requires PHP 5.4 or greater.');
 }
 
 //	rewrite rules for cleaner URLs
