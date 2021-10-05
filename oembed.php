@@ -39,6 +39,7 @@ if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
 	$plugin_author = 'Mika Epstein (ipstenu), Dean Moses (deanmoses)';
 	$plugin_version = '0.0.1';
+	$plugin_url = 'https://github.com/jorjafox/embed-npg/';
 }
 
 //	rewrite rules for cleaner URLs
@@ -48,9 +49,7 @@ $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
 		'rule' => '%REWRITE% $1?json-oembed [NC,L,QSA]');
 
 // Handle REST API calls before anything else
-// This is necessary because it sets response headers
-// that are different from normal ones
-// Returns the iframe embed
+// This is necessary because it sets response headers that are different.
 if (!OFFSET_PATH && isset($_GET['embed'])) {
 	npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute_iframe', 9999);
 }
@@ -65,12 +64,8 @@ npgFilters::register('theme_head', 'FLF_NGP_OEmbed::get_json_oembed');
 
 class FLF_NGP_OEmbed {
 
-	public function __construct() {
-		$this->custom_theme = SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/embed.php';
-	}
-
 	/**
-	 * Execute header output.
+	 * Execute header output for JSON calls.
 	 *
 	 * @return n/a
 	 */
@@ -121,21 +116,25 @@ class FLF_NGP_OEmbed {
 	public static function execute_iframe() {
 		global $_gallery_page, $_gallery, $_current_album, $_current_image;
 
+		// If the whole thing isn't public, we're stopping.
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
+				case 'index.php':
 				case 'album.php':
 					$ret = self::get_album_iframe($_current_album);
 					break;
 				case 'image.php':
 					$ret = self::get_image_iframe($_current_image);
 					break;
+				default:
+					$ret = self::get_error_data( 404, gettext( 'No such embed exists.', 'oembed_api' ) );
 			}
 		} else {
 			$ret = self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
 		// Return the results to the client in JSON format
-		print( $ret);
+		print($ret);
 
 		exit();
 	}
@@ -156,6 +155,7 @@ class FLF_NGP_OEmbed {
 
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
+				case 'index.php':
 				case 'album.php':
 					$ret = self::get_album_data($_current_album);
 					break;
@@ -195,16 +195,21 @@ class FLF_NGP_OEmbed {
 	}
 
 	// this needs to return the 'album' embed
-	public static function get_album_iframe($album) {
-		global $_gallery, $_current_image;
+	public static function get_album_iframe( $album ) {
+		global $_gallery, $_current_image, $_current_page;
 
+		// If there's no album, we bail.
 		if (!$album) {
 			return;
 		}
 
+		// If the album's private, we bail.
 		if (!$album->checkAccess()) {
-			return self::get_error_data(403, gettext('Access forbidden.'));
+			return self::get_error_data( 403, gettext('Access forbidden.') );
 		}
+
+		// Default description
+		$description = '';
 
 		// Featured thumbnail...
 		$thumbnail_url = ''; // need a placeholder URL here...
@@ -213,33 +218,87 @@ class FLF_NGP_OEmbed {
 			$thumbnail_url = $thumb_image->getThumb();
 		}
 
-		// Number of images in album AND number of subalbums
-		$counts = '';
+		// Album URL
+		$album_url = FULLHOSTPATH . $album->getLink();
 
-		if ($album->getNumAlbums() !== 0) {
-			$counts .= $album->getNumAlbums() . ' sub-albums. ';
+		// If there are NO images, we show the album details
+		if ($album->getNumImages() === 0) {
+			// No gallery to display
+			$gallery = false;
+		} else {
+			// We have images, so we show something different.
+			// The description is an image grid!
+
+			// Build an array of images
+			$images = array();
+
+			// Get all the images...
+			$i = 1;
+			foreach ( $album->getImages( $_current_image ) as $filename ) {
+
+				// If we have more than four images, we stop.
+				if ($i > 4) {
+					break;
+				}
+
+				// Create Image Object and get thumb:
+				$image    = newImage( $album, $filename );
+				$images[] = array(
+					'thumb' => $image->getThumb(),
+					'url' => $image->getLink(),
+				);
+
+				// Bump $i
+				$i++;
+			}
+
+			if ($images) {
+				// Start the build...
+				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
+
+				// for each image, we want to craft the output.
+				foreach ($images as $one_image) {
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
+				}
+
+				$description .= '</div></div>';
+			}
+
+			$gallery = true;
 		}
-		if ($album->getNumImages() !== 0) {
-			$counts .= $album->getNumImages() . ' images.';
+
+		// Build the count of images and subalbums ...
+		if ((int)$album->getNumAlbums() !== 0 || (int)$album->getNumImages() !== 0) {
+			$counts = ' (';
+			if ((int)$album->getNumAlbums() !== 0) {
+				$counts .= $album->getNumAlbums() . ' sub-albums';
+			}
+			if ((int)$album->getNumAlbums() !== 0 && (int)$album->getNumImages() !== 0) {
+				$counts .= ' and ';
+			}
+			if ((int) $album->getNumImages() !== 0) {
+				$counts .= $album->getNumImages() . ' images';
+			}
+			$counts .= ')';
+		} else {
+			$counts = '';
 		}
 
-		// Dates
-		$date_created = $album->getDateTime();
-		$date_updated = $album->getUpdatedDate();
+		$album_desc = (130 <= strlen($album->getDesc())) ? substr($album->getDesc(), 0, 130) . '...' : $album->getDesc();
 
-		// Build the description:
-		$description = '<p>' . $album->getDesc() . '</p><p>' . $counts . '</p><p>Created ' . $date_created . ' // Updated: ' . $date_updated . '</p>';
+		$description .= '<p>' . $album_desc . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
-				'url_thumb' => FULLHOSTPATH . $thumbnail_url,
-				'url' => FULLHOSTPATH . $album->getLink(),
+				'url_thumb' => $thumbnail_url,
+				'url' => $album_url,
 				'thumb_size' => getSizeDefaultThumb(),
-				'width' => (int) getOption('image_size'),
-				'height' => floor(( getOption('image_size') * 24 ) / 36),
+				'width' => (int) getOption( 'image_size' ),
+				'height'   => floor( ( getOption( 'image_size' ) * 24 ) / 36 ),
 				'share_code' => '', // output to share via html or URL
-				'title' => $album->getTitle(),
+				'title' => $album->getTitle() . $counts,
 				'desc' => $description,
+				'gallery' => $gallery,
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -260,7 +319,8 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$description = $image->getDesc() . '<p>' . $image->getCredit() . '</p><p>' . $image->getCopyright() . '</p>';
+		// Base description.
+		$description = $image->getDesc();
 
 		// Array with the data we need:
 		$ret = array(
@@ -272,6 +332,7 @@ class FLF_NGP_OEmbed {
 				'share_code' => '', // output to share via html or URL
 				'title' => $image->getTitle(),
 				'desc' => $description,
+				'gallery' => false,
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -297,9 +358,7 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		//$html = '<iframe sandbox="allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox" security="restricted" src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="300" title="' . html_encode( $album->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
-
-		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="300" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode( $album->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// Get image size
 		$image_size = (int) getOption('image_size');
@@ -350,10 +409,7 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		// get HTML
-		// $html = '<iframe sandbox="allow-scripts allow-top allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox" security="restricted" src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode( $image->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
-
-		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode( $image->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -401,11 +457,37 @@ class FLF_NGP_OEmbed {
 	public static function use_default_iframe($ret) {
 		global $_gallery;
 
+		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
+
+		// Allow override for icon
+		if (file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png')) {
+			$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
+		}
+
+		// Featured Image and description depends on this being a gallery or not...
+		if (false === $ret['gallery']) {
+			$featured_image = '<div class="npg-embed-featured-image square">
+				<a href="' . $ret['url'] . '" target="_top">
+					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
+				</a>
+			</div>';
+		} else {
+			$featured_image = '';
+		}
+
+		// Description needs truncation
+		$description = (false === $ret['gallery'] && 130 <= strlen($ret['desc'])) ? substr($ret['desc'], 0, 130) . '...' : $ret['desc'];
+
+		// Get CSS
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
 		$iFrame_css = ob_get_clean();
-		ob_end_clean();
+		if (ob_get_length() > 0 ) {
+			ob_end_clean();
+		}
+
+		// Build the iframe.
 		$iframe = '<!DOCTYPE html>
 			<html lang="en-US" class="no-js">
 			<head>
@@ -418,18 +500,13 @@ class FLF_NGP_OEmbed {
 			</head>
 			<body class="npg npg-embed-responsive">
 				<div class="npg-embed">
-					<div class="npg-embed-featured-image square">
-						<a href="' . $ret['url'] . '" target="_top">
-							<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
-						</a>
-					</div>
-
+					' . $featured_image . '
 					<p class="npg-embed-heading">
 						<a href="' . $ret['url'] . '" target="_top">' . $ret['title'] . '</a>
 					</p>
 
 					<div class="npg-embed-excerpt">
-						' . $ret['desc'] . '
+						' . $description . '
 					</div>
 
 					<div class="npg-embed-footer">
@@ -440,11 +517,11 @@ class FLF_NGP_OEmbed {
 							</a>
 						</div>
 						<div class="npg-embed-meta">
+							<!--
 							<div class="npg-embed-share">
-								<!--
 								<button type="button" class="npg-embed-share-dialog-open" aria-label="Open sharing dialog">' . $ret['share_code'] . '</button>
-								-->
 							</div>
+							-->
 						</div>
 					</div>
 				</div>

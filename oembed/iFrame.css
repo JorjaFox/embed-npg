@@ -60,6 +60,11 @@ body{
 	margin-right:20px
 }
 
+.npg-embed-image{
+	max-width: 100px;
+	margin: 10px;
+}
+
 .npg-embed p{
 	margin:0 0 10px 0
 }
