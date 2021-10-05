@@ -117,7 +117,7 @@ class FLF_NGP_OEmbed {
 		global $_gallery_page, $_gallery, $_current_album, $_current_image;
 
 		// If the whole thing isn't public, we're stopping.
-		if ( GALLERY_SECURITY === 'public' ) {
+		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
 				case 'index.php':
 				case 'album.php':
@@ -153,7 +153,7 @@ class FLF_NGP_OEmbed {
 		// the data structure we will return via JSON
 		$ret = array();
 
-		if ( GALLERY_SECURITY === 'public' ) {
+		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
 				case 'index.php':
 				case 'album.php':
@@ -199,12 +199,12 @@ class FLF_NGP_OEmbed {
 		global $_gallery, $_current_image, $_current_page;
 
 		// If there's no album, we bail.
-		if ( ! $album ) {
+		if (!$album) {
 			return;
 		}
 
 		// If the album's private, we bail.
-		if ( ! $album->checkAccess() ) {
+		if (!$album->checkAccess()) {
 			return self::get_error_data( 403, gettext('Access forbidden.') );
 		}
 
@@ -222,7 +222,7 @@ class FLF_NGP_OEmbed {
 		$album_url = FULLHOSTPATH . $album->getLink();
 
 		// If there are NO images, we show the album details
-		if ( $album->getNumImages() === 0 ) {
+		if ($album->getNumImages() === 0) {
 			// No gallery to display
 			$gallery = false;
 		} else {
@@ -237,7 +237,7 @@ class FLF_NGP_OEmbed {
 			foreach ( $album->getImages( $_current_image ) as $filename ) {
 
 				// If we have more than four images, we stop.
-				if ( $i > 4 ) {
+				if ($i > 4) {
 					break;
 				}
 
@@ -245,19 +245,19 @@ class FLF_NGP_OEmbed {
 				$image    = newImage( $album, $filename );
 				$images[] = array(
 					'thumb' => $image->getThumb(),
-					'url'   => $image->getLink(),
+					'url' => $image->getLink(),
 				);
 
 				// Bump $i
 				$i++;
 			}
 
-			if ( $images ) {
+			if ($images) {
 				// Start the build...
 				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
 
 				// for each image, we want to craft the output.
-				foreach ( $images as $one_image ) {
+				foreach ($images as $one_image) {
 					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
 				}
 
@@ -268,15 +268,15 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Build the count of images and subalbums ...
-		if ( (int) $album->getNumAlbums() !== 0 || (int) $album->getNumImages() !== 0 ) {
+		if ((int)$album->getNumAlbums() !== 0 || (int)$album->getNumImages() !== 0) {
 			$counts = ' (';
-			if ( (int) $album->getNumAlbums() !== 0 ) {
+			if ((int)$album->getNumAlbums() !== 0) {
 				$counts .= $album->getNumAlbums() . ' sub-albums';
 			}
-			if ( (int) $album->getNumAlbums() !== 0 && (int) $album->getNumImages() !== 0 ) {
+			if ((int)$album->getNumAlbums() !== 0 && (int)$album->getNumImages() !== 0) {
 				$counts .= ' and ';
 			}
-			if ( (int) $album->getNumImages() !== 0 ) {
+			if ((int) $album->getNumImages() !== 0) {
 				$counts .= $album->getNumImages() . ' images';
 			}
 			$counts .= ')';
@@ -284,7 +284,9 @@ class FLF_NGP_OEmbed {
 			$counts = '';
 		}
 
-		$description .= '<p>' . $album->getDesc() . '</p>';
+		$album_desc = (130 <= strlen($album->getDesc())) ? substr($album->getDesc(), 0, 130) . '...' : $album->getDesc();
+
+		$description .= '<p>' . $album_desc . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
@@ -319,16 +321,6 @@ class FLF_NGP_OEmbed {
 
 		// Base description.
 		$description = $image->getDesc();
-
-		// If there are credits, we include them.
-		if ( ! empty( $image->getCredit() ) ) {
-			$descrption .= '<p>' . $image->getCredit() . '</p>';
-		}
-
-		// If there is copyright data, we include that.
-		if ( ! empty( $image->getCopyright() ) ) {
-			$descrption .= '<p>' . $image->getCopyright() . '</p>';
-		}
 
 		// Array with the data we need:
 		$ret = array(
@@ -469,12 +461,12 @@ class FLF_NGP_OEmbed {
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
 		// Allow override for icon
-		if ( file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png') ) {
+		if (file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png')) {
 			$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
 		}
 
-		// Featured Image depends on this being a gallery or not...
-		if ( false === $ret['gallery'] ) {
+		// Featured Image and description depends on this being a gallery or not...
+		if (false === $ret['gallery']) {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
 					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
@@ -484,11 +476,16 @@ class FLF_NGP_OEmbed {
 			$featured_image = '';
 		}
 
+		// Description needs truncation
+		$description = (false === $ret['gallery'] && 130 <= strlen($ret['desc'])) ? substr($ret['desc'], 0, 130) . '...' : $ret['desc'];
+
 		// Get CSS
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
 		$iFrame_css = ob_get_clean();
-		ob_end_clean();
+		if (ob_get_length() > 0 ) {
+			ob_end_clean();
+		}
 
 		// Build the iframe.
 		$iframe = '<!DOCTYPE html>
@@ -509,7 +506,7 @@ class FLF_NGP_OEmbed {
 					</p>
 
 					<div class="npg-embed-excerpt">
-						' . $ret['desc'] . '
+						' . $description . '
 					</div>
 
 					<div class="npg-embed-footer">
