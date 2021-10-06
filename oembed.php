@@ -304,7 +304,6 @@ class FLF_NGP_OEmbed {
 		);
 
 		$iframe = self::use_default_iframe($ret);
-		$iframe = str_replace(array('\r', '\n'), '', $iframe);
 
 		return $iframe;
 	}
@@ -338,7 +337,6 @@ class FLF_NGP_OEmbed {
 		);
 
 		$iframe = self::use_default_iframe($ret);
-		$iframe = str_replace(array('\r', '\n'), '', $iframe);
 
 		return $iframe;
 	}
