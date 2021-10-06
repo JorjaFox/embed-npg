@@ -1,34 +1,47 @@
 <?php
 
 /**
- * An oEmbed API for NetPhotoGraphics.
+ * An oEmbed API for <b>netPhotoGraphics</b>.
  *
- * Looks for a query string parameters and returns the custom formatted response.
+ * <i>oEmbed</i> recognizes modified versions of the standard <b>netPhotoGraphics</b> URL links.
+ * It intercepts the link processing and returns an object embedded result to
+ * insert into the requesting document
  *
- * Params:
- *  ?embed
- *    - i.e. example.com/albumb/image.html?embed
- *    An iframe formatted version of the page
+ * If <i>mod_rewrire</i> is enabled the URLs start with the embed request:
  *
- *  ?json-oembed
- *    - i.e. example.com/albumb/image.html?json-oembed
- *    The oEmbed formatted JSON response
+ * <dl>
+ * 	<dt>For an iFrame version of the page</dt><dd>example.com/embed/albumb/image.html</dd>
+ * 	<dt>For a json response</dt><dd>example.com/json-oembed/albumb/image.html<\dd> (For a json response)
+ * </dl>
  *
- * If you have mod_rewrite enabled you can use instead:
+ * Otherwise use a query parameter appended to the link:
  *
- * 	example.com/embed/albumb/image.html	(For an iFrame version of the page)
+ * <dl>
+ * 	<dt>For an iFrame</dt><dd>example.com/albumb/image.html?embed</dd>
+ * 	<dt>For a json response</dt><dd>example.com/albumb/image.html?json-oembed</dd>
+ * </dl>
  *
- * 	example.com/json-embed/albumb/image.html (For a json response)
+ * iFrame output can be customizes by providing theme based source files for the <i>icon</i>,
+ * the <i>iFrame CSS</i>, and/or the <i>iFrame HTML</i>.
+ * Create an <i>oembed</i> folder in your theme folder. If you wish to replace the
+ * plugin's icon, name your icon replacement <var>icon.png</var> and place it in the folder.
+ * To customize the layout copy the <i>iFrame.css</i> and <i>iFrame.html</i> files from the plugin to
+ * your theme <i>oembed</i> folder. Modify these files to achieve the results you desire.
+ * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> tile that will be dynamically replaced
+ * in the actual iFrame output by the specifics of the object you are linking. These meta-tokens are
+ * capitalized text enclosed in percent signs. e.g. <var>%GALLERYTITLE%</var>
  *
  * -----
  *
  * This could be forked and turned into a better sort of global oEmbed api.
  * I recommend including:
- * - A way to override the iframe design
+ *
  * - An oEmbed for the main gallery page
+ *
  * - Maybe a way for an album page to oembed a number of images?
  *
  * Forked from {@link https://github.com/deanmoses/zenphoto-json-rest-api}
+ *
  * Original author Dean Moses (deanmoses)
  *
  * @author Mika Epstein (ipstenu)
@@ -464,59 +477,35 @@ class FLF_NGP_OEmbed {
 					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
 				</a>
 			</div>';
+			// Description may need truncation
+			$description = shortenContent($ret['desc'], 130, '...');
 		} else {
 			$featured_image = '';
+			$description = $ret['desc'];
 		}
-
-		// Description needs truncation
-		$description = (false === $ret['gallery'] && 130 <= strlen($ret['desc'])) ? substr($ret['desc'], 0, 130) . '...' : $ret['desc'];
 
 		// Get CSS
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
-		$iFrame_css = ob_get_clean();
+		$iFrame_css = rtrim(ob_get_clean(), "\n");
 
 		// Build the iframe.
-		$iframe = '<!DOCTYPE html>
-			<html lang="en-US" class="no-js">
-			<head>
-				<title>' . $ret['title'] . ' | ' . html_encode(getGalleryTitle()) . '</title>
-				<base target="_top" />
-				<meta http-equiv="X-UA-Compatible" content="IE=edge">
-				' . $iFrame_css .
-						'				<meta name="robots" content="noindex, follow"/>
-				<link rel="canonical" href="' . $ret['url'] . '" />
-			</head>
-			<body class="npg npg-embed-responsive">
-				<div class="npg-embed">
-					' . $featured_image . '
-					<p class="npg-embed-heading">
-						<a href="' . $ret['url'] . '" target="_top">' . $ret['title'] . '</a>
-					</p>
+		$inserts = array(
+				'%HEADTITLE%' => $ret['title'],
+				'%GALLERYTITLE%' => html_encode(getGalleryTitle()),
+				'%IFRAMECSS%' => $iFrame_css,
+				'%IMAGE%' => $featured_image,
+				'%URL%' => $ret['url'],
+				'%URLTITLE%' => $ret['title'],
+				'%DESCRIPTION%' => $description,
+				'%GALLERYINDEXURL%' => FULLHOSTPATH . html_encode(getGalleryIndexURL()),
+				'%GALLERYICON%' => $gallery_icon,
+				'%BAREGALLERYTITLE%' => html_encode(getBareGalleryTitle()),
+				'%BUTTONTEXT%' => $ret['share_code']
+		);
 
-					<div class="npg-embed-excerpt">
-						' . $description . '
-					</div>
-
-					<div class="npg-embed-footer">
-						<div class="npg-embed-site-title">
-							<a href="' . FULLHOSTPATH . html_encode(getGalleryIndexURL()) . '" target="_top">
-								<img src="' . $gallery_icon . '" width="32" height="32" alt="" class="npg-embed-site-icon"/>
-								<span>' . html_encode(getBareGalleryTitle()) . '</span>
-							</a>
-						</div>
-						<div class="npg-embed-meta">
-							<!--
-							<div class="npg-embed-share">
-								<button type="button" class="npg-embed-share-dialog-open" aria-label="Open sharing dialog">' . $ret['share_code'] . '</button>
-							</div>
-							-->
-						</div>
-					</div>
-				</div>
-			</body>
-			</html>';
-		return $iframe;
+		$iFrame = file_get_contents(getPlugin('oembed/iFrame.html', TRUE));
+		return strtr($iFrame, $inserts);
 	}
 
 }
