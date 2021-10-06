@@ -14,6 +14,12 @@
  *    - i.e. example.com/albumb/image.html?json-oembed
  *    The oEmbed formatted JSON response
  *
+ * If you have mod_rewrite enabled you can use instead:
+ *
+ * 	example.com/embed/albumb/image.html	(For an iFrame version of the page)
+ *
+ * 	example.com/json-embed/albumb/image.html (For a json response)
+ *
  * -----
  *
  * This could be forked and turned into a better sort of global oEmbed api.
@@ -452,11 +458,6 @@ class FLF_NGP_OEmbed {
 
 		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
-
-		// Allow override for icon
-		if (file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png')) {
-			$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
-		}
 
 		// Featured Image and description depends on this being a gallery or not...
 		if (false === $ret['gallery']) {
