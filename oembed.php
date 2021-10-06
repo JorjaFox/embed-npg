@@ -127,7 +127,7 @@ class FLF_NGP_OEmbed {
 					$ret = self::get_image_iframe($_current_image);
 					break;
 				default:
-					$ret = self::get_error_data( 404, gettext( 'No such embed exists.', 'oembed_api' ) );
+					$ret = self::get_error_data(404, gettext('No such embed exists.', 'oembed_api'));
 			}
 		} else {
 			$ret = self::get_error_data(403, gettext('Access forbidden.'));
@@ -195,7 +195,7 @@ class FLF_NGP_OEmbed {
 	}
 
 	// this needs to return the 'album' embed
-	public static function get_album_iframe( $album ) {
+	public static function get_album_iframe($album) {
 		global $_gallery, $_current_image, $_current_page;
 
 		// If there's no album, we bail.
@@ -205,18 +205,15 @@ class FLF_NGP_OEmbed {
 
 		// If the album's private, we bail.
 		if (!$album->checkAccess()) {
-			return self::get_error_data( 403, gettext('Access forbidden.') );
+			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
 		// Default description
 		$description = '';
 
 		// Featured thumbnail...
-		$thumbnail_url = ''; // need a placeholder URL here...
 		$thumb_image = $album->getAlbumThumbImage();
-		if ($thumb_image) {
-			$thumbnail_url = $thumb_image->getThumb();
-		}
+		$thumbnail_url = $thumb_image->getThumb();
 
 		// Album URL
 		$album_url = FULLHOSTPATH . $album->getLink();
@@ -228,13 +225,12 @@ class FLF_NGP_OEmbed {
 		} else {
 			// We have images, so we show something different.
 			// The description is an image grid!
-
 			// Build an array of images
 			$images = array();
 
 			// Get all the images...
 			$i = 1;
-			foreach ( $album->getImages( $_current_image ) as $filename ) {
+			foreach ($album->getImages($_current_image) as $filename) {
 
 				// If we have more than four images, we stop.
 				if ($i > 4) {
@@ -242,10 +238,10 @@ class FLF_NGP_OEmbed {
 				}
 
 				// Create Image Object and get thumb:
-				$image    = newImage( $album, $filename );
+				$image = newImage($album, $filename);
 				$images[] = array(
-					'thumb' => $image->getThumb(),
-					'url' => $image->getLink(),
+						'thumb' => $image->getThumb(),
+						'url' => $image->getLink(),
 				);
 
 				// Bump $i
@@ -258,7 +254,7 @@ class FLF_NGP_OEmbed {
 
 				// for each image, we want to craft the output.
 				foreach ($images as $one_image) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" /></a>';
 				}
 
 				$description .= '</div></div>';
@@ -268,12 +264,12 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Build the count of images and subalbums ...
-		if ((int)$album->getNumAlbums() !== 0 || (int)$album->getNumImages() !== 0) {
+		if ((int) $album->getNumAlbums() !== 0 || (int) $album->getNumImages() !== 0) {
 			$counts = ' (';
-			if ((int)$album->getNumAlbums() !== 0) {
+			if ((int) $album->getNumAlbums() !== 0) {
 				$counts .= $album->getNumAlbums() . ' sub-albums';
 			}
-			if ((int)$album->getNumAlbums() !== 0 && (int)$album->getNumImages() !== 0) {
+			if ((int) $album->getNumAlbums() !== 0 && (int) $album->getNumImages() !== 0) {
 				$counts .= ' and ';
 			}
 			if ((int) $album->getNumImages() !== 0) {
@@ -293,8 +289,8 @@ class FLF_NGP_OEmbed {
 				'url_thumb' => $thumbnail_url,
 				'url' => $album_url,
 				'thumb_size' => getSizeDefaultThumb(),
-				'width' => (int) getOption( 'image_size' ),
-				'height'   => floor( ( getOption( 'image_size' ) * 24 ) / 36 ),
+				'width' => (int) getOption('image_size'),
+				'height' => floor(( getOption('image_size') * 24 ) / 36),
 				'share_code' => '', // output to share via html or URL
 				'title' => $album->getTitle() . $counts,
 				'desc' => $description,
@@ -358,18 +354,15 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode( $album->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// Get image size
 		$image_size = (int) getOption('image_size');
 		$thumb_size = getSizeDefaultThumb();
 
 		// Featured thumbnail...
-		$thumbnail_url = ''; // need a placeholder URL here...
 		$thumb_image = $album->getAlbumThumbImage();
-		if ($thumb_image) {
-			$thumbnail_url = $thumb_image->getThumb();
-		}
+		$thumbnail_url = $thumb_image->getThumb();
 
 		// the data structure we will be returning
 		$ret = array(
@@ -409,7 +402,7 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode( $image->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -483,9 +476,6 @@ class FLF_NGP_OEmbed {
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
 		$iFrame_css = ob_get_clean();
-		if (ob_get_length() > 0 ) {
-			ob_end_clean();
-		}
 
 		// Build the iframe.
 		$iframe = '<!DOCTYPE html>
