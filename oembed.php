@@ -249,7 +249,8 @@ class FLF_NGP_OEmbed {
 
 			// Get all the images...
 			$i = 1;
-			foreach ($album->getImages($_current_image) as $filename) {
+			$get_images = $album->getImages();
+			foreach ($get_images as $filename) {
 
 				// If we have more than four images, we stop.
 				if ($i > 4) {
@@ -299,9 +300,7 @@ class FLF_NGP_OEmbed {
 			$counts = '';
 		}
 
-		$album_desc = (130 <= strlen($album->getDesc())) ? substr($album->getDesc(), 0, 130) . '...' : $album->getDesc();
-
-		$description .= '<p>' . $album_desc . '</p>';
+		$description .= '<p>' . $album->getDesc() . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
@@ -471,18 +470,18 @@ class FLF_NGP_OEmbed {
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
 		// Featured Image and description depends on this being a gallery or not...
-		if (false === $ret['gallery']) {
+		if ($ret['gallery']) {
+			$featured_image = '';
+		} else {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
 					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
 				</a>
 			</div>';
-			// Description may need truncation
-			$description = shortenContent($ret['desc'], 130, '...');
-		} else {
-			$featured_image = '';
-			$description = $ret['desc'];
 		}
+
+		// Description may need truncation
+		$description = shortenContent($ret['desc'], 130, '...');
 
 		// Get CSS
 		ob_start();
@@ -491,17 +490,15 @@ class FLF_NGP_OEmbed {
 
 		// Build the iframe.
 		$inserts = array(
-				'%HEADTITLE%' => $ret['title'],
-				'%GALLERYTITLE%' => html_encode(getGalleryTitle()),
+				'%GALLERYTITLE%' => getBareGalleryTitle(),
+				'%GALLERYINDEXURL%' => FULLHOSTPATH . html_encode(getGalleryIndexURL()),
+				'%GALLERYICON%' => $gallery_icon,
+				'%TITLE%' => $ret['title'],
 				'%IFRAMECSS%' => $iFrame_css,
 				'%IMAGE%' => $featured_image,
 				'%URL%' => $ret['url'],
-				'%URLTITLE%' => $ret['title'],
 				'%DESCRIPTION%' => $description,
-				'%GALLERYINDEXURL%' => FULLHOSTPATH . html_encode(getGalleryIndexURL()),
-				'%GALLERYICON%' => $gallery_icon,
-				'%BAREGALLERYTITLE%' => html_encode(getBareGalleryTitle()),
-				'%BUTTONTEXT%' => $ret['share_code']
+				'%BUTTONTEXT%' => html_encodeTagged($ret['share_code'])
 		);
 
 		$iFrame = file_get_contents(getPlugin('oembed/iFrame.html', TRUE));
