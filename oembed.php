@@ -234,7 +234,8 @@ class FLF_NGP_OEmbed {
 
 			// Get all the images...
 			$i = 1;
-			foreach ( $album->getImages( $_current_image ) as $filename ) {
+			$get_images = $album->getImages();
+			foreach ( $get_images as $filename ) {
 
 				// If we have more than four images, we stop.
 				if ($i > 4) {
@@ -242,7 +243,7 @@ class FLF_NGP_OEmbed {
 				}
 
 				// Create Image Object and get thumb:
-				$image    = newImage( $album, $filename );
+				$image    = newImage($album, $filename);
 				$images[] = array(
 					'thumb' => $image->getThumb(),
 					'url' => $image->getLink(),
