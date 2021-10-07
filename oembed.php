@@ -53,7 +53,7 @@
  *
  */
 // Plugin Headers
-$plugin_is_filter = 5 | CLASS_PLUGIN;
+$plugin_is_filter = 5 | FEATURE_PLUGIN;
 if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
 	$plugin_author = 'Mika Epstein (ipstenu), Dean Moses (deanmoses)';
@@ -62,6 +62,10 @@ if (defined('SETUP_PLUGIN')) {
 }
 
 //	rewrite rules for cleaner URLs
+$_conf_vars['special_pages'][] = array('rewrite' => '^embed/*$',
+		'rule' => '%REWRITE% index.php?embed [NC,R,QSA]');
+$_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/*$',
+		'rule' => '%REWRITE% index.php?json-oembed [NC,R,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/(.*)/*$',
 		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
@@ -138,7 +142,6 @@ class FLF_NGP_OEmbed {
 		// If the whole thing isn't public, we're stopping.
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
-				case 'index.php':
 				case 'album.php':
 					$ret = self::get_album_iframe($_current_album);
 					break;
@@ -146,10 +149,12 @@ class FLF_NGP_OEmbed {
 					$ret = self::get_image_iframe($_current_image);
 					break;
 				default:
-					$ret = self::get_error_data(404, gettext('No such embed exists.', 'oembed_api'));
+					//	page not supported
+					$ret = self::get_error_iframe(405, gettext('Method not allowed.'));
+					break;
 			}
 		} else {
-			$ret = self::get_error_data(403, gettext('Access forbidden.'));
+			$ret = self::get_error_iframe(403, gettext('Access forbidden.'));
 		}
 
 		// Return the results to the client in JSON format
@@ -174,12 +179,15 @@ class FLF_NGP_OEmbed {
 
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
-				case 'index.php':
 				case 'album.php':
 					$ret = self::get_album_data($_current_album);
 					break;
 				case 'image.php':
 					$ret = self::get_image_data($_current_image);
+					break;
+				default:
+					//	page not supported
+					$ret = self::get_error_data(405, gettext('Method not allowed.'));
 					break;
 			}
 		} else {
@@ -224,7 +232,7 @@ class FLF_NGP_OEmbed {
 
 		// If the album's private, we bail.
 		if (!$album->checkAccess()) {
-			return self::get_error_data(403, gettext('Access forbidden.'));
+			return self::get_error_iframe(403, gettext('Access forbidden.'));
 		}
 
 		// Default description
@@ -237,25 +245,16 @@ class FLF_NGP_OEmbed {
 		// Album URL
 		$album_url = FULLHOSTPATH . $album->getLink();
 
-		// If there are NO images, we show the album details
-		if ($album->getNumImages() === 0) {
-			// No gallery to display
-			$gallery = false;
-		} else {
+		if ($album->getNumImages()) {
+
 			// We have images, so we show something different.
 			// The description is an image grid!
 			// Build an array of images
 			$images = array();
 
 			// Get all the images...
-			$i = 1;
-			$get_images = $album->getImages();
+			$get_images = array_slice($album->getImages(), 4);
 			foreach ($get_images as $filename) {
-
-				// If we have more than four images, we stop.
-				if ($i > 4) {
-					break;
-				}
 
 				// Create Image Object and get thumb:
 				$image = newImage($album, $filename);
@@ -263,9 +262,6 @@ class FLF_NGP_OEmbed {
 						'thumb' => $image->getThumb(),
 						'url' => $image->getLink(),
 				);
-
-				// Bump $i
-				$i++;
 			}
 
 			if ($images) {
@@ -281,18 +277,21 @@ class FLF_NGP_OEmbed {
 			}
 
 			$gallery = true;
+		} else { // If there are NO images, we show the album details
+			// No gallery to display
+			$gallery = false;
 		}
 
 		// Build the count of images and subalbums ...
-		if ((int) $album->getNumAlbums() !== 0 || (int) $album->getNumImages() !== 0) {
+		if ($album->getNumAlbums() || $album->getNumImages()) {
 			$counts = ' (';
-			if ((int) $album->getNumAlbums() !== 0) {
+			if ($album->getNumAlbums()) {
 				$counts .= $album->getNumAlbums() . ' sub-albums';
 			}
-			if ((int) $album->getNumAlbums() !== 0 && (int) $album->getNumImages() !== 0) {
+			if ($album->getNumAlbums() && $album->getNumImages()) {
 				$counts .= ' and ';
 			}
-			if ((int) $album->getNumImages() !== 0) {
+			if ($album->getNumImages()) {
 				$counts .= $album->getNumImages() . ' images';
 			}
 			$counts .= ')';
@@ -446,17 +445,42 @@ class FLF_NGP_OEmbed {
 	 * @param string $error_message message to return to the client
 	 * @return JSON-ready array
 	 */
-	public static function get_error_data($error_code, $error_message = '') {
-		$ret = array();
-
+	public static function get_error_data($error_code, $error_message) {
 		http_response_code($error_code);
-		$ret['error'] = true;
-		$ret['status'] = $error_code;
-		if ($error_message) {
-			$ret['message'] = $error_message;
-		}
+		$ret = array(
+				'error' => true,
+				'status' => $error_code,
+				'message' => $error_message
+		);
 
 		return $ret;
+	}
+
+	/**
+	 * Returns an iFrame with an error information
+	 *
+	 * @param type $error_code numeric HTTP error code like 404
+	 * @param type $error_message message to display
+	 * @return string iFrame
+	 *
+	 */
+	public static function get_error_iframe($error_code, $error_message) {
+		// Array with the data we need:
+		$ret = array(
+				'url_thumb' => FULLHOSTPATH . '/' . CORE_FOLDER . '/images/err-broken-page.png',
+				'url' => '',
+				'thumb_size' => [100, 100],
+				'width' => 100,
+				'height' => 100,
+				'share_code' => '', // output to share via html or URL
+				'title' => $error_code,
+				'desc' => $error_message,
+				'gallery' => false,
+		);
+
+		$iframe = self::use_default_iframe($ret);
+
+		return $iframe;
 	}
 
 	/**
