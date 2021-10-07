@@ -1,28 +1,47 @@
 <?php
 
 /**
- * An oEmbed API for NetPhotoGraphics.
+ * An oEmbed API for <b>netPhotoGraphics</b>.
  *
- * Looks for a query string parameters and returns the custom formatted response.
+ * <i>oEmbed</i> recognizes modified versions of the standard <b>netPhotoGraphics</b> URL links.
+ * It intercepts the link processing and returns an object embedded result to
+ * insert into the requesting document
  *
- * Params:
- *  ?embed
- *    - i.e. example.com/albumb/image.html?embed
- *    An iframe formatted version of the page
+ * If <i>mod_rewrire</i> is enabled the URLs start with the embed request:
  *
- *  ?json-oembed
- *    - i.e. example.com/albumb/image.html?json-oembed
- *    The oEmbed formatted JSON response
+ * <dl>
+ * 	<dt>For an iFrame version of the page</dt><dd>example.com/embed/albumb/image.html</dd>
+ * 	<dt>For a json response</dt><dd>example.com/json-oembed/albumb/image.html<\dd> (For a json response)
+ * </dl>
+ *
+ * Otherwise use a query parameter appended to the link:
+ *
+ * <dl>
+ * 	<dt>For an iFrame</dt><dd>example.com/albumb/image.html?embed</dd>
+ * 	<dt>For a json response</dt><dd>example.com/albumb/image.html?json-oembed</dd>
+ * </dl>
+ *
+ * iFrame output can be customizes by providing theme based source files for the <i>icon</i>,
+ * the <i>iFrame CSS</i>, and/or the <i>iFrame HTML</i>.
+ * Create an <i>oembed</i> folder in your theme folder. If you wish to replace the
+ * plugin's icon, name your icon replacement <var>icon.png</var> and place it in the folder.
+ * To customize the layout copy the <i>iFrame.css</i> and <i>iFrame.html</i> files from the plugin to
+ * your theme <i>oembed</i> folder. Modify these files to achieve the results you desire.
+ * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> tile that will be dynamically replaced
+ * in the actual iFrame output by the specifics of the object you are linking. These meta-tokens are
+ * capitalized text enclosed in percent signs. e.g. <var>%GALLERYTITLE%</var>
  *
  * -----
  *
  * This could be forked and turned into a better sort of global oEmbed api.
  * I recommend including:
- * - A way to override the iframe design
+ *
  * - An oEmbed for the main gallery page
+ *
  * - Maybe a way for an album page to oembed a number of images?
  *
  * Forked from {@link https://github.com/deanmoses/zenphoto-json-rest-api}
+ *
  * Original author Dean Moses (deanmoses)
  *
  * @author Mika Epstein (ipstenu)
@@ -43,7 +62,7 @@ if (defined('SETUP_PLUGIN')) {
 }
 
 //	rewrite rules for cleaner URLs
-$_conf_vars['special_pages'][] = array('rewrite' => '^oembed/(.*)/*$',
+$_conf_vars['special_pages'][] = array('rewrite' => '^embed/(.*)/*$',
 		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
 		'rule' => '%REWRITE% $1?json-oembed [NC,L,QSA]');
@@ -127,7 +146,7 @@ class FLF_NGP_OEmbed {
 					$ret = self::get_image_iframe($_current_image);
 					break;
 				default:
-					$ret = self::get_error_data( 404, gettext( 'No such embed exists.', 'oembed_api' ) );
+					$ret = self::get_error_data(404, gettext('No such embed exists.', 'oembed_api'));
 			}
 		} else {
 			$ret = self::get_error_data(403, gettext('Access forbidden.'));
@@ -195,7 +214,7 @@ class FLF_NGP_OEmbed {
 	}
 
 	// this needs to return the 'album' embed
-	public static function get_album_iframe( $album ) {
+	public static function get_album_iframe($album) {
 		global $_gallery, $_current_image, $_current_page;
 
 		// If there's no album, we bail.
@@ -205,18 +224,15 @@ class FLF_NGP_OEmbed {
 
 		// If the album's private, we bail.
 		if (!$album->checkAccess()) {
-			return self::get_error_data( 403, gettext('Access forbidden.') );
+			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
 		// Default description
 		$description = '';
 
 		// Featured thumbnail...
-		$thumbnail_url = ''; // need a placeholder URL here...
 		$thumb_image = $album->getAlbumThumbImage();
-		if ($thumb_image) {
-			$thumbnail_url = $thumb_image->getThumb();
-		}
+		$thumbnail_url = $thumb_image->getThumb();
 
 		// Album URL
 		$album_url = FULLHOSTPATH . $album->getLink();
@@ -228,14 +244,13 @@ class FLF_NGP_OEmbed {
 		} else {
 			// We have images, so we show something different.
 			// The description is an image grid!
-
 			// Build an array of images
 			$images = array();
 
 			// Get all the images...
 			$i = 1;
 			$get_images = $album->getImages();
-			foreach ( $get_images as $filename ) {
+			foreach ($get_images as $filename) {
 
 				// If we have more than four images, we stop.
 				if ($i > 4) {
@@ -243,10 +258,10 @@ class FLF_NGP_OEmbed {
 				}
 
 				// Create Image Object and get thumb:
-				$image    = newImage($album, $filename);
+				$image = newImage($album, $filename);
 				$images[] = array(
-					'thumb' => $image->getThumb(),
-					'url' => $image->getLink(),
+						'thumb' => $image->getThumb(),
+						'url' => $image->getLink(),
 				);
 
 				// Bump $i
@@ -259,7 +274,7 @@ class FLF_NGP_OEmbed {
 
 				// for each image, we want to craft the output.
 				foreach ($images as $one_image) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode( $one_image['thumb'] ) . '" /></a>';
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" /></a>';
 				}
 
 				$description .= '</div></div>';
@@ -269,12 +284,12 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Build the count of images and subalbums ...
-		if ((int)$album->getNumAlbums() !== 0 || (int)$album->getNumImages() !== 0) {
+		if ((int) $album->getNumAlbums() !== 0 || (int) $album->getNumImages() !== 0) {
 			$counts = ' (';
-			if ((int)$album->getNumAlbums() !== 0) {
+			if ((int) $album->getNumAlbums() !== 0) {
 				$counts .= $album->getNumAlbums() . ' sub-albums';
 			}
-			if ((int)$album->getNumAlbums() !== 0 && (int)$album->getNumImages() !== 0) {
+			if ((int) $album->getNumAlbums() !== 0 && (int) $album->getNumImages() !== 0) {
 				$counts .= ' and ';
 			}
 			if ((int) $album->getNumImages() !== 0) {
@@ -285,17 +300,15 @@ class FLF_NGP_OEmbed {
 			$counts = '';
 		}
 
-		$album_desc = (130 <= strlen($album->getDesc())) ? substr($album->getDesc(), 0, 130) . '...' : $album->getDesc();
-
-		$description .= '<p>' . $album_desc . '</p>';
+		$description .= '<p>' . $album->getDesc() . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
 				'url_thumb' => $thumbnail_url,
 				'url' => $album_url,
 				'thumb_size' => getSizeDefaultThumb(),
-				'width' => (int) getOption( 'image_size' ),
-				'height'   => floor( ( getOption( 'image_size' ) * 24 ) / 36 ),
+				'width' => (int) getOption('image_size'),
+				'height' => floor(( getOption('image_size') * 24 ) / 36),
 				'share_code' => '', // output to share via html or URL
 				'title' => $album->getTitle() . $counts,
 				'desc' => $description,
@@ -303,7 +316,6 @@ class FLF_NGP_OEmbed {
 		);
 
 		$iframe = self::use_default_iframe($ret);
-		$iframe = str_replace(array('\r', '\n'), '', $iframe);
 
 		return $iframe;
 	}
@@ -337,7 +349,6 @@ class FLF_NGP_OEmbed {
 		);
 
 		$iframe = self::use_default_iframe($ret);
-		$iframe = str_replace(array('\r', '\n'), '', $iframe);
 
 		return $iframe;
 	}
@@ -359,18 +370,15 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode( $album->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// Get image size
 		$image_size = (int) getOption('image_size');
 		$thumb_size = getSizeDefaultThumb();
 
 		// Featured thumbnail...
-		$thumbnail_url = ''; // need a placeholder URL here...
 		$thumb_image = $album->getAlbumThumbImage();
-		if ($thumb_image) {
-			$thumbnail_url = $thumb_image->getThumb();
-		}
+		$thumbnail_url = $thumb_image->getThumb();
 
 		// the data structure we will be returning
 		$ret = array(
@@ -410,7 +418,7 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode( $image->getTitle() ) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -461,74 +469,40 @@ class FLF_NGP_OEmbed {
 		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
-		// Allow override for icon
-		if (file_exists(SERVERPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png')) {
-			$gallery_icon = FULLHOSTPATH . WEBPATH . '/' . THEMEFOLDER . '/' . $_gallery->getCurrentTheme() . '/images/oembed-icon.png';
-		}
-
 		// Featured Image and description depends on this being a gallery or not...
-		if (false === $ret['gallery']) {
+		if ($ret['gallery']) {
+			$featured_image = '';
+		} else {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
 					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
 				</a>
 			</div>';
-		} else {
-			$featured_image = '';
 		}
 
-		// Description needs truncation
-		$description = (false === $ret['gallery'] && 130 <= strlen($ret['desc'])) ? substr($ret['desc'], 0, 130) . '...' : $ret['desc'];
+		// Description may need truncation
+		$description = shortenContent($ret['desc'], 130, '...');
 
 		// Get CSS
 		ob_start();
 		scriptLoader(getPlugin('oembed/iFrame.css', TRUE));
-		$iFrame_css = ob_get_clean();
-		if (ob_get_length() > 0 ) {
-			ob_end_clean();
-		}
+		$iFrame_css = rtrim(ob_get_clean(), "\n");
 
 		// Build the iframe.
-		$iframe = '<!DOCTYPE html>
-			<html lang="en-US" class="no-js">
-			<head>
-				<title>' . $ret['title'] . ' | ' . html_encode(getGalleryTitle()) . '</title>
-				<base target="_top" />
-				<meta http-equiv="X-UA-Compatible" content="IE=edge">
-				' . $iFrame_css .
-						'				<meta name="robots" content="noindex, follow"/>
-				<link rel="canonical" href="' . $ret['url'] . '" />
-			</head>
-			<body class="npg npg-embed-responsive">
-				<div class="npg-embed">
-					' . $featured_image . '
-					<p class="npg-embed-heading">
-						<a href="' . $ret['url'] . '" target="_top">' . $ret['title'] . '</a>
-					</p>
+		$inserts = array(
+				'%GALLERYTITLE%' => getBareGalleryTitle(),
+				'%GALLERYINDEXURL%' => FULLHOSTPATH . html_encode(getGalleryIndexURL()),
+				'%GALLERYICON%' => $gallery_icon,
+				'%TITLE%' => $ret['title'],
+				'%IFRAMECSS%' => $iFrame_css,
+				'%IMAGE%' => $featured_image,
+				'%URL%' => $ret['url'],
+				'%DESCRIPTION%' => $description,
+				'%BUTTONTEXT%' => html_encodeTagged($ret['share_code'])
+		);
 
-					<div class="npg-embed-excerpt">
-						' . $description . '
-					</div>
-
-					<div class="npg-embed-footer">
-						<div class="npg-embed-site-title">
-							<a href="' . FULLHOSTPATH . html_encode(getGalleryIndexURL()) . '" target="_top">
-								<img src="' . $gallery_icon . '" width="32" height="32" alt="" class="npg-embed-site-icon"/>
-								<span>' . html_encode(getBareGalleryTitle()) . '</span>
-							</a>
-						</div>
-						<div class="npg-embed-meta">
-							<!--
-							<div class="npg-embed-share">
-								<button type="button" class="npg-embed-share-dialog-open" aria-label="Open sharing dialog">' . $ret['share_code'] . '</button>
-							</div>
-							-->
-						</div>
-					</div>
-				</div>
-			</body>
-			</html>';
-		return $iframe;
+		$iFrame = file_get_contents(getPlugin('oembed/iFrame.html', TRUE));
+		return strtr($iFrame, $inserts);
 	}
 
 }
