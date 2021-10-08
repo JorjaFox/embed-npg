@@ -36,8 +36,6 @@
  * This could be forked and turned into a better sort of global oEmbed api.
  * I recommend including:
  *
- * - An oEmbed for the main gallery page
- *
  * - Maybe a way for an album page to oembed a number of images?
  *
  * Forked from {@link https://github.com/deanmoses/zenphoto-json-rest-api}
@@ -142,6 +140,9 @@ class FLF_NGP_OEmbed {
 		// If the whole thing isn't public, we're stopping.
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
+				case 'index.php':
+					$ret = self::get_gallery_iframe();
+					break;
 				case 'album.php':
 					$ret = self::get_album_iframe($_current_album);
 					break;
@@ -179,6 +180,9 @@ class FLF_NGP_OEmbed {
 
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
+				case 'index.php':
+					$ret = self::get_gallery_data();
+					break;
 				case 'album.php':
 					$ret = self::get_album_data($_current_album);
 					break;
@@ -221,7 +225,108 @@ class FLF_NGP_OEmbed {
 		}
 	}
 
-	// this needs to return the 'album' embed
+	/**
+	 * Returns an iFrame for the gallery
+	 *
+	 * @global type $_gallery
+	 * @global type $_current_image
+	 * @global type $_current_page
+	 * @return type
+	 */
+	public static function get_gallery_iframe() {
+		global $_gallery;
+
+		// If the album's private, we bail.
+		if (!checkAccess()) {
+			return self::get_error_iframe(403, gettext('Access forbidden.'));
+		}
+
+		// Album URL
+		$gallery_url = FULLHOSTPATH . getGalleryIndexURL();
+
+		// Default description
+		$description = '';
+
+		if ($_gallery->getNumAlbums()) {
+
+			// build an array of album thumgs
+			$thumbs = array();
+
+			// Get all the albums sorted by last change date
+			$_gallery->setSortType('lastchange', 'album');
+			$_gallery->setSortDirection(1, 'album');
+
+			$get_albums = array_slice($_gallery->getAlbums(), 0, 4);
+
+			foreach ($get_albums as $filename) {
+
+				// Create Image Object and get thumb:
+				$albumObj = newAlbum($filename);
+				$thumbs[] = array(
+						'thumb' => $albumObj->getThumb(),
+						'url' => $albumObj->getLink(),
+				);
+			}
+
+			if ($thumbs) {
+				// Start the build...
+				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
+
+				// for each image, we want to craft the output.
+				foreach ($thumbs as $one_thumb) {
+					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" /></a>';
+				}
+
+				$description .= '</div></div>';
+			}
+		}
+
+		// Build the count of images and subalbums ...
+		if ($_gallery->getNumAlbums() || $_gallery->getNumImages()) {
+			$counts = ' (';
+			if ($_gallery->getNumAlbums()) {
+				$counts .= $_gallery->getNumAlbums() . ' albums';
+			}
+			if ($_gallery->getNumAlbums() && $_gallery->getNumImages()) {
+				$counts .= ' and ';
+			}
+			if ($_gallery->getNumImages()) {
+				$counts .= $_gallery->getNumImages() . ' images';
+			}
+			$counts .= ')';
+		} else {
+			$counts = '';
+		}
+
+		$description .= '<p>' . $_gallery->getDesc() . '</p>';
+
+		// Array with the data we need:
+		$ret = array(
+				'url_thumb' => '',
+				'url' => $gallery_url,
+				'thumb_size' => 0,
+				'width' => 0,
+				'height' => 0,
+				'share_code' => '', // output to share via html or URL
+				'title' => $_gallery->getTitle() . $counts,
+				'desc' => $description,
+				'gallery' => false,
+		);
+
+		$iframe = self::use_default_iframe($ret);
+
+		return $iframe;
+	}
+
+	/**
+	 * Returns an iFrame for an album
+	 *
+	 * @global type $_gallery
+	 * @global type $_current_image
+	 * @global type $_current_page
+	 * @param type $album
+	 * @return type
+	 */
 	public static function get_album_iframe($album) {
 		global $_gallery, $_current_image, $_current_page;
 
@@ -252,8 +357,10 @@ class FLF_NGP_OEmbed {
 			// Build an array of images
 			$images = array();
 
-			// Get all the images...
-			$get_images = array_slice($album->getImages(), 4);
+			// Get all the images sorted by last change date
+			$album->setSortType('lastchange', 'album');
+			$album->setSortDirection(1, 'album');
+			$get_images = array_slice($album->getImages(), 0, 4);
 			foreach ($get_images as $filename) {
 
 				// Create Image Object and get thumb:
@@ -319,7 +426,13 @@ class FLF_NGP_OEmbed {
 		return $iframe;
 	}
 
-	// this needs to return the 'main' embed
+	/**
+	 * Returns an iFrame for an image
+	 *
+	 * @global type $_gallery
+	 * @param type $image
+	 * @return type
+	 */
 	public static function get_image_iframe($image) {
 		global $_gallery;
 
@@ -350,6 +463,39 @@ class FLF_NGP_OEmbed {
 		$iframe = self::use_default_iframe($ret);
 
 		return $iframe;
+	}
+
+	/**
+	 * Return array containing info about the gallery.
+	 *
+	 * @return JSON-ready array
+	 */
+	public static function get_gallery_data() {
+		global $_gallery;
+
+		if (!checkAccess()) {
+			return self::get_error_data(403, gettext('Access forbidden.'));
+		}
+
+		$html = '<iframe src="' . FULLHOSTPATH . getGalleryIndexURL() . '?embed" width="600" height="338" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+
+		// the data structure we will be returning
+		$ret = array(
+				'version' => '1.0',
+				'provider_name' => $_gallery->getTitle() . ' - ' . getGalleryTitle(),
+				'provider_url' => FULLHOSTPATH . getGalleryIndexURL(),
+				'title' => $_gallery->getTitle(),
+				'type' => 'rich',
+				'width' => '600',
+				'height' => '300',
+				'html' => $html,
+				'thumbnail_url' => '',
+				'thumbnail_width' => 0,
+				'thumbnail_height' => 0,
+				'description' => html_encode($_gallery->getDesc()),
+		);
+
+		return $ret;
 	}
 
 	/**
@@ -495,13 +641,13 @@ class FLF_NGP_OEmbed {
 
 		// Featured Image and description depends on this being a gallery or not...
 		if ($ret['gallery']) {
-			$featured_image = '';
-		} else {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
 					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
 				</a>
 			</div>';
+		} else {
+			$featured_image = '';
 		}
 
 		// Description may need truncation
