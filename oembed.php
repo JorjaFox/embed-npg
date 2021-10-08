@@ -42,10 +42,10 @@
  *
  * Original author Dean Moses (deanmoses)
  *
- * @author Mika Epstein (ipstenu)
+ * @author Mika Epstein (ipstenu) Mika Epstein (ipstenu), Dean Moses (deanmoses)
  * @copyright 2021 by Mika Epstein for use in {@link https://%GITHUB% netPhotoGraphics} and derivatives
  * @package plugins/oEmbed
- * @pluginCategory development
+ * @pluginCategory theme
  * @license GPLv2 (or later)
  * @repository {@link https://github.com/JorjaFox/embed-npg}
  *
@@ -54,16 +54,14 @@
 $plugin_is_filter = 5 | FEATURE_PLUGIN;
 if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
-	$plugin_author = 'Mika Epstein (ipstenu), Dean Moses (deanmoses)';
-	$plugin_version = '0.0.1';
-	$plugin_url = 'https://github.com/jorjafox/embed-npg/';
+	$plugin_version = '0.0.2';
 }
 
 //	rewrite rules for cleaner URLs
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/*$',
-		'rule' => '%REWRITE% index.php?embed [NC,R,QSA]');
+		'rule' => '%REWRITE% index.php?embed [NC,:L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/*$',
-		'rule' => '%REWRITE% index.php?json-oembed [NC,R,QSA]');
+		'rule' => '%REWRITE% index.php?json-oembed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/(.*)/*$',
 		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
@@ -71,14 +69,7 @@ $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
 
 // Handle REST API calls before anything else
 // This is necessary because it sets response headers that are different.
-if (!OFFSET_PATH && isset($_GET['embed'])) {
-	npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute_iframe', 9999);
-}
-
-// Returns the oEmbed JSON data.
-if (!OFFSET_PATH && isset($_GET['json-oembed'])) {
-	npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute_json', 9999);
-}
+npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute', 9999);
 
 // Register oEmbed Discovery so WordPress and Drupal can run with this.
 npgFilters::register('theme_head', 'FLF_NGP_OEmbed::get_json_oembed');
@@ -127,6 +118,17 @@ class FLF_NGP_OEmbed {
 
 		/* Allow for multiple Vary headers because other things could be adding a Vary as well. */
 		header('Vary: Origin', false);
+	}
+
+	public static function execute() {
+		if (isset($_GET['embed'])) {
+			//	returns the iFrame
+			self::execute_iframe();
+		}
+		if (isset($_GET['json-oembed'])) {
+			//	Returns the oEmbed JSON data.
+			self::execute_json();
+		}
 	}
 
 	/**
@@ -270,7 +272,7 @@ class FLF_NGP_OEmbed {
 
 			if ($thumbs) {
 				// Start the build...
-				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
+				$description .= '<div class="npg-embed-row">' . gettext('albums') . '<div class="npg-embed-column">';
 
 				// for each image, we want to craft the output.
 				foreach ($thumbs as $one_thumb) {
@@ -350,6 +352,41 @@ class FLF_NGP_OEmbed {
 		// Album URL
 		$album_url = FULLHOSTPATH . $album->getLink();
 
+		if ($album->getNumAlbums()) {
+
+			// build an array of album thumgs
+			$thumbs = array();
+
+			// Get all the albums sorted by last change date
+			$album->setSortType('lastchange', 'album');
+			$album->setSortDirection(1, 'album');
+
+			$get_albums = array_slice($album->getAlbums(), 0, 4);
+
+			foreach ($get_albums as $filename) {
+
+				// Create Image Object and get thumb:
+				$albumObj = newAlbum($filename);
+				$thumbs[] = array(
+						'thumb' => $albumObj->getThumb(),
+						'url' => $albumObj->getLink(),
+				);
+			}
+
+			if ($thumbs) {
+
+				// Start the build...
+				$description .= '<div class="npg-embed-row">' . gettext('subalbums') . '<div class="npg-embed-column">' . "\n";
+
+				// for each image, we want to craft the output.
+				foreach ($thumbs as $one_thumb) {
+					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" /></a>' . "\n";
+				}
+
+				$description .= '</div></div>' . "\n";
+			}
+		}
+
 		if ($album->getNumImages()) {
 
 			// We have images, so we show something different.
@@ -372,12 +409,13 @@ class FLF_NGP_OEmbed {
 			}
 
 			if ($images) {
+
 				// Start the build...
-				$description = '<div class="npg-embed-row"><div class="npg-embed-column">';
+				$description .= '<div class="npg-embed-row">' . gettext('images') . '<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($images as $one_image) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" /></a>';
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" /></a>' . "\n";
 				}
 
 				$description .= '</div></div>';
