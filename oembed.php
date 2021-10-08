@@ -59,7 +59,7 @@ if (defined('SETUP_PLUGIN')) {
 
 //	rewrite rules for cleaner URLs
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/*$',
-		'rule' => '%REWRITE% index.php?embed [NC,:L,QSA]');
+		'rule' => '%REWRITE% index.php?embed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/*$',
 		'rule' => '%REWRITE% index.php?json-oembed [NC,L,QSA]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/(.*)/*$',
