@@ -170,7 +170,7 @@ class FLF_NGP_OEmbed {
 	 * This does not return; it exits.
 	 */
 	protected static function execute_iframe() {
-		global $_gallery_page;
+		global $_gallery_page, $_current_album, $_current_image;
 		// If the whole thing isn't public, we're stopping.
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
@@ -327,14 +327,14 @@ class FLF_NGP_OEmbed {
 		// Build the count of images and subalbums ...
 		if ($_gallery->getNumAlbums() || $_gallery->getNumImages()) {
 			$counts = ' (';
-			if ($_gallery->getNumAlbums()) {
-				$counts .= $_gallery->getNumAlbums() . ' ' . getttext('albums');
+			if ($c = $_gallery->getNumAlbums()) {
+				$counts .= sprintf(ngettext('%1$s album', '%1$s albums', $c), $c);
 			}
 			if ($_gallery->getNumAlbums() && $_gallery->getNumImages()) {
 				$counts .= ' and ';
 			}
-			if ($_gallery->getNumImages()) {
-				$counts .= $_gallery->getNumImages() . ' ' . gettext('images');
+			if ($c = $_gallery->getNumImages()) {
+				$counts .= sprintf(ngettext('%1$s image', '%1$s images', $c), $c);
 			}
 			$counts .= ')';
 		} else {
@@ -470,14 +470,14 @@ class FLF_NGP_OEmbed {
 		// Build the count of images and subalbums ...
 		if ($album->getNumAlbums() || $album->getNumImages()) {
 			$counts = ' (';
-			if ($album->getNumAlbums()) {
-				$counts .= $album->getNumAlbums() . ' ' . gettext('sub-albums');
+			if ($c = $album->getNumAlbums()) {
+				$counts .= sprintf(ngettext('%1$s sub-album', '%1$s sub-albums', $c), $c);
 			}
 			if ($album->getNumAlbums() && $album->getNumImages()) {
 				$counts .= ' and ';
 			}
-			if ($album->getNumImages()) {
-				$counts .= $album->getNumImages() . ' ' . gettext('images');
+			if ($c = $album->getNumImages()) {
+				$counts .= sprintf(ngettext('%1$s image', '%1$s images', $c), $c);
 			}
 			$counts .= ')';
 		} else {
