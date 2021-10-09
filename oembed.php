@@ -693,7 +693,7 @@ class FLF_NGP_OEmbed {
 		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
-		// Featured Image and description depends on this being a gallery or not...
+		// Featured Image and description
 		if ($ret['url_thumb']) {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
