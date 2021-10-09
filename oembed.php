@@ -341,12 +341,10 @@ class FLF_NGP_OEmbed {
 
 		// Array with the data we need:
 		$ret = array(
-				'url_thumb' => '',
+				'url_thumb' => $_gallery->getSiteLogo(),
 				'url' => $gallery_url,
 				'url_title' => gettext('Visit the gallery'),
-				'thumb_size' => 0,
-				'width' => 0,
-				'height' => 0,
+				'thumb_size' => [78, 282],
 				'share_code' => '', // output to share via html or URL
 				'title' => $_gallery->getTitle() . $counts,
 				'content' => $description
@@ -368,11 +366,6 @@ class FLF_NGP_OEmbed {
 	 */
 	protected static function get_album_iframe($album) {
 		global $_gallery, $_current_image, $_current_page;
-
-		// If there's no album, we bail.
-		if (!$album) {
-			return;
-		}
 
 		// If the album's private, we bail.
 		if (!$album->checkAccess()) {
@@ -510,10 +503,6 @@ class FLF_NGP_OEmbed {
 	protected static function get_image_iframe($image) {
 		global $_gallery;
 
-		if (!$image) {
-			return;
-		}
-
 		if (!$image->checkAccess()) {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
@@ -581,10 +570,6 @@ class FLF_NGP_OEmbed {
 	protected static function get_album_data($album) {
 		global $_current_image;
 
-		if (!$album) {
-			return;
-		}
-
 		if (!$album->checkAccess()) {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
@@ -626,9 +611,6 @@ class FLF_NGP_OEmbed {
 	 * @return JSON-ready array
 	 */
 	protected static function get_image_data($image) {
-		if (!$image) {
-			return;
-		}
 
 		if (!$image->checkAccess()) {
 			return self::get_error_data(403, gettext('Access forbidden.'));
@@ -691,8 +673,6 @@ class FLF_NGP_OEmbed {
 				'url' => '',
 				'url_title' => '',
 				'thumb_size' => [100, 100],
-				'width' => 100,
-				'height' => 100,
 				'share_code' => '', // output to share via html or URL
 				'title' => $error_code,
 				'content' => $error_message
