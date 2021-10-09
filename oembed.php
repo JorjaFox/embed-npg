@@ -11,14 +11,14 @@
  *
  * <dl>
  * 	<dt>For an iFrame version of the page</dt><dd>example.com/embed/albumb/image.html</dd>
- * 	<dt>For a json response</dt><dd>example.com/json-oembed/albumb/image.html<\dd> (For a json response)
+ * 	<dt>For a json response</dt><dd>example.com/embed-json/albumb/image.html<\dd> (For a json response)
  * </dl>
  *
  * Otherwise use a query parameter appended to the link:
  *
  * <dl>
- * 	<dt>For an iFrame</dt><dd>example.com/albumb/image.html?embed</dd>
- * 	<dt>For a json response</dt><dd>example.com/albumb/image.html?json-oembed</dd>
+ * 	<dt>For an iFrame</dt><dd>example.com/albumb/image.html?embed=iFrame</dd>
+ * 	<dt>For a json response</dt><dd>example.com/albumb/image.html?embed=json</dd>
  * </dl>
  *
  * iFrame output can be customizes by providing theme based source files for the <i>icon</i>,
@@ -27,16 +27,11 @@
  * plugin's icon, name your icon replacement <var>icon.png</var> and place it in the folder.
  * To customize the layout copy the <i>iFrame.css</i> and <i>iFrame.html</i> files from the plugin to
  * your theme <i>oembed</i> folder. Modify these files to achieve the results you desire.
- * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> tile that will be dynamically replaced
+ * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> file that will be dynamically replaced
  * in the actual iFrame output by the specifics of the object you are linking. These meta-tokens are
  * capitalized text enclosed in percent signs. e.g. <var>%GALLERYTITLE%</var>
  *
- * -----
  *
- * This could be forked and turned into a better sort of global oEmbed api.
- * I recommend including:
- *
- * - Maybe a way for an album page to oembed a number of images?
  *
  * Forked from {@link https://github.com/deanmoses/zenphoto-json-rest-api}
  *
@@ -51,24 +46,24 @@
  *
  */
 // Plugin Headers
-$plugin_is_filter = 5 | FEATURE_PLUGIN;
+$plugin_is_filter = 995 | CLASS_PLUGIN; //	must be high priority so fall thru rewrite rules come first
 if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
-	$plugin_version = '0.0.2';
+	$plugin_version = '0.0.3';
 }
 
 //	rewrite rules for cleaner URLs
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/*$',
-		'rule' => '%REWRITE% index.php?embed [NC,L,QSA]');
-$_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/*$',
-		'rule' => '%REWRITE% index.php?json-oembed [NC,L,QSA]');
+		'rule' => '%REWRITE% index.php?embed=iFrame [NC]');
+$_conf_vars['special_pages'][] = array('rewrite' => '^embed-json/*$',
+		'rule' => '%REWRITE% index.php?embed=json [NC]');
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/(.*)/*$',
-		'rule' => '%REWRITE% $1?embed [NC,L,QSA]');
-$_conf_vars['special_pages'][] = array('rewrite' => '^json-oembed/(.*)/*$',
-		'rule' => '%REWRITE% $1?json-oembed [NC,L,QSA]');
+		'rule' => '%REWRITE% $1?embed=iFrame [NC]');
+$_conf_vars['special_pages'][] = array('rewrite' => '^embed-json/(.*)/*$',
+		'rule' => '%REWRITE% $1?embed=json [NC]');
 
-// Handle REST API calls before anything else
-// This is necessary because it sets response headers that are different.
+/* 	Handle REST API calls during theme script loading (after rwrite rules are processed)
+  This is necessary because it sets response headers that are different. */
 npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute', 9999);
 
 // Register oEmbed Discovery so WordPress and Drupal can run with this.
@@ -81,7 +76,7 @@ class FLF_NGP_OEmbed {
 	 *
 	 * @return n/a
 	 */
-	public static function execute_headers() {
+	protected static function execute_headers() {
 		header('Content-type: application/json; charset=UTF-8');
 
 		// If the request is coming from a subdomain, send the headers
@@ -120,15 +115,53 @@ class FLF_NGP_OEmbed {
 		header('Vary: Origin', false);
 	}
 
+	/**
+	 * This is the function that recognizes and executes an embed request
+	 */
 	public static function execute() {
 		if (isset($_GET['embed'])) {
-			//	returns the iFrame
-			self::execute_iframe();
+			switch (strtolower($_GET['embed'])) {
+				default:
+				case 'iframe':
+					//	returns the iFrame
+					self::execute_iframe();
+					break;
+				case 'json':
+					//	Returns the oEmbed JSON data.
+					self::execute_json();
+					break;
+			}
 		}
-		if (isset($_GET['json-oembed'])) {
-			//	Returns the oEmbed JSON data.
-			self::execute_json();
+	}
+
+	/**
+	 * changes link to an oEmbed link
+	 *
+	 * @param type $link object link
+	 * @param type $type iFrame for an iFrame link, json for a json-oembed link
+	 * @return string
+	 */
+	protected static function oEmbedLink($link, $type) {
+		switch ($type) {
+			case 'iFrame':
+				$rewrite = 'embed';
+				$plain = 'embed=iFrame';
+				break;
+			case 'json':
+				$rewrite = 'json-oembed';
+				$plain = 'embed=json';
+				break;
 		}
+		if (MOD_REWRITE) {
+			$path = '/' . $rewrite . $link;
+		} else {
+			if (strpos($link, '?')) {
+				$path = $link . '&' . $plain;
+			} else {
+				$path = $link . '?' . $plain;
+			}
+		}
+		return $path;
 	}
 
 	/**
@@ -136,9 +169,8 @@ class FLF_NGP_OEmbed {
 	 *
 	 * This does not return; it exits.
 	 */
-	public static function execute_iframe() {
-		global $_gallery_page, $_gallery, $_current_album, $_current_image;
-
+	protected static function execute_iframe() {
+		global $_gallery_page;
 		// If the whole thing isn't public, we're stopping.
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
@@ -171,7 +203,7 @@ class FLF_NGP_OEmbed {
 	 *
 	 * This does not return; it exits.
 	 */
-	public static function execute_json() {
+	protected static function execute_json() {
 		global $_gallery_page, $_current_album, $_current_image;
 
 		// Execute the headers
@@ -213,16 +245,19 @@ class FLF_NGP_OEmbed {
 		global $_gallery_page, $_current_album, $_current_image;
 
 		switch ($_gallery_page) {
+			case 'index.php':
+				$canonicalurl = getGalleryIndexURL();
+				break;
 			case 'album.php':
-				$canonicalurl = FULLHOSTPATH . $_current_album->getLink();
+				$canonicalurl = $_current_album->getLink();
 				break;
 			case 'image.php':
-				$canonicalurl = FULLHOSTPATH . $_current_image->getLink();
+				$canonicalurl = $_current_image->getLink();
 				break;
 		}
 
 		if (isset($canonicalurl)) {
-			$meta = '<link rel="alternate" type="application/json+oembed" href="' . $canonicalurl . '?json-oembed" />';
+			$meta = '<link rel="alternate" type="application/json+oembed" href="' . FULLHOSTPATH . self::oEmbedLink($canonicalurl, 'json') . '" />';
 			echo $meta;
 		}
 	}
@@ -235,7 +270,7 @@ class FLF_NGP_OEmbed {
 	 * @global type $_current_page
 	 * @return type
 	 */
-	public static function get_gallery_iframe() {
+	protected static function get_gallery_iframe() {
 		global $_gallery;
 
 		// If the album's private, we bail.
@@ -247,7 +282,7 @@ class FLF_NGP_OEmbed {
 		$gallery_url = FULLHOSTPATH . getGalleryIndexURL();
 
 		// Default description
-		$description = '';
+		$description = '<p>' . "\n" . shortenContent($_gallery->getDesc(), 300, '...') . "\n" . '</p>';
 
 		if ($_gallery->getNumAlbums()) {
 
@@ -267,19 +302,25 @@ class FLF_NGP_OEmbed {
 				$thumbs[] = array(
 						'thumb' => $albumObj->getThumb(),
 						'url' => $albumObj->getLink(),
+						'title' => $albumObj->getTitle()
 				);
 			}
 
 			if ($thumbs) {
 				// Start the build...
-				$description .= '<div class="npg-embed-row">' . gettext('albums') . '<div class="npg-embed-column">';
+				$description .= '<div class="npg-embed-row">' . "\n" .
+								gettext('albums') . "\n" .
+								'<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($thumbs as $one_thumb) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" /></a>';
+					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top" title="' . html_encode($one_thumb['title']) . '" >' . "\n" .
+									'<img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . "\n" .
+									'" />' . "\n" .
+									"</a>\n";
 				}
 
-				$description .= '</div></div>';
+				$description .= '</div>' . "\n" . '</div>';
 			}
 		}
 
@@ -287,32 +328,30 @@ class FLF_NGP_OEmbed {
 		if ($_gallery->getNumAlbums() || $_gallery->getNumImages()) {
 			$counts = ' (';
 			if ($_gallery->getNumAlbums()) {
-				$counts .= $_gallery->getNumAlbums() . ' albums';
+				$counts .= $_gallery->getNumAlbums() . ' ' . getttext('albums');
 			}
 			if ($_gallery->getNumAlbums() && $_gallery->getNumImages()) {
 				$counts .= ' and ';
 			}
 			if ($_gallery->getNumImages()) {
-				$counts .= $_gallery->getNumImages() . ' images';
+				$counts .= $_gallery->getNumImages() . ' ' . gettext('images');
 			}
 			$counts .= ')';
 		} else {
 			$counts = '';
 		}
 
-		$description .= '<p>' . $_gallery->getDesc() . '</p>';
-
 		// Array with the data we need:
 		$ret = array(
 				'url_thumb' => '',
 				'url' => $gallery_url,
+				'url_title' => gettext('Visit the gallery'),
 				'thumb_size' => 0,
 				'width' => 0,
 				'height' => 0,
 				'share_code' => '', // output to share via html or URL
 				'title' => $_gallery->getTitle() . $counts,
-				'desc' => $description,
-				'gallery' => false,
+				'content' => $description
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -329,7 +368,7 @@ class FLF_NGP_OEmbed {
 	 * @param type $album
 	 * @return type
 	 */
-	public static function get_album_iframe($album) {
+	protected static function get_album_iframe($album) {
 		global $_gallery, $_current_image, $_current_page;
 
 		// If there's no album, we bail.
@@ -343,7 +382,7 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Default description
-		$description = '';
+		$description = '<p>' . "\n" . shortenContent($album->getDesc(), 300, '...') . "\n" . '</p>';
 
 		// Featured thumbnail...
 		$thumb_image = $album->getAlbumThumbImage();
@@ -370,20 +409,23 @@ class FLF_NGP_OEmbed {
 				$thumbs[] = array(
 						'thumb' => $albumObj->getThumb(),
 						'url' => $albumObj->getLink(),
+						'title' => $albumObj->getTitle()
 				);
 			}
 
 			if ($thumbs) {
 
 				// Start the build...
-				$description .= '<div class="npg-embed-row">' . gettext('subalbums') . '<div class="npg-embed-column">' . "\n";
+				$description .= '<div class="npg-embed-row">' . "\n" . gettext('subalbums') . "\n" . '<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($thumbs as $one_thumb) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" /></a>' . "\n";
+					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top" title="' . html_encode($one_thumb['title']) . '" >' . "\n" .
+									'<img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" />' . "\n" .
+									"</a>\n";
 				}
 
-				$description .= '</div></div>' . "\n";
+				$description .= '</div>' . "\n" . '</div>' . "\n";
 			}
 		}
 
@@ -405,58 +447,54 @@ class FLF_NGP_OEmbed {
 				$images[] = array(
 						'thumb' => $image->getThumb(),
 						'url' => $image->getLink(),
+						'title' => $image->getTitle()
 				);
 			}
 
 			if ($images) {
 
 				// Start the build...
-				$description .= '<div class="npg-embed-row">' . gettext('images') . '<div class="npg-embed-column">' . "\n";
+				$description .= '<div class="npg-embed-row">' . "\n" . gettext('images') . "\n" . '<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($images as $one_image) {
-					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top"><img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" /></a>' . "\n";
+					$description .= '<a href="' . FULLHOSTPATH . $one_image['url'] . '" target="_top" title="' . html_encode($one_image['title']) . '">' . "\n" .
+									'<img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_image['thumb']) . '" />' . "\n" .
+									"</a>\n";
 				}
 
-				$description .= '</div></div>';
+				$description .= '</div>' . "\n" . '</div>';
 			}
-
-			$gallery = true;
-		} else { // If there are NO images, we show the album details
-			// No gallery to display
-			$gallery = false;
 		}
 
 		// Build the count of images and subalbums ...
 		if ($album->getNumAlbums() || $album->getNumImages()) {
 			$counts = ' (';
 			if ($album->getNumAlbums()) {
-				$counts .= $album->getNumAlbums() . ' sub-albums';
+				$counts .= $album->getNumAlbums() . ' ' . gettext('sub-albums');
 			}
 			if ($album->getNumAlbums() && $album->getNumImages()) {
 				$counts .= ' and ';
 			}
 			if ($album->getNumImages()) {
-				$counts .= $album->getNumImages() . ' images';
+				$counts .= $album->getNumImages() . ' ' . gettext('images');
 			}
 			$counts .= ')';
 		} else {
 			$counts = '';
 		}
 
-		$description .= '<p>' . $album->getDesc() . '</p>';
-
 		// Array with the data we need:
 		$ret = array(
 				'url_thumb' => $thumbnail_url,
 				'url' => $album_url,
+				'url_title' => gettext('Visit the album page'),
 				'thumb_size' => getSizeDefaultThumb(),
 				'width' => (int) getOption('image_size'),
 				'height' => floor(( getOption('image_size') * 24 ) / 36),
 				'share_code' => '', // output to share via html or URL
 				'title' => $album->getTitle() . $counts,
-				'desc' => $description,
-				'gallery' => $gallery,
+				'content' => $description
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -471,7 +509,7 @@ class FLF_NGP_OEmbed {
 	 * @param type $image
 	 * @return type
 	 */
-	public static function get_image_iframe($image) {
+	protected static function get_image_iframe($image) {
 		global $_gallery;
 
 		if (!$image) {
@@ -483,19 +521,19 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Base description.
-		$description = $image->getDesc();
+		$description = '<p>' . "\n" . shortenContent($image->getDesc(), 300, '...') . "\n" . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
 				'url_thumb' => FULLHOSTPATH . $image->getThumb(),
 				'url' => FULLHOSTPATH . $image->getLink(),
+				'url_title' => gettext('Visit the image page'),
 				'thumb_size' => getSizeDefaultThumb(),
 				'width' => (int) $image->getWidth(),
 				'height' => (int) $image->getHeight(),
 				'share_code' => '', // output to share via html or URL
 				'title' => $image->getTitle(),
-				'desc' => $description,
-				'gallery' => false,
+				'content' => $description
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -508,14 +546,14 @@ class FLF_NGP_OEmbed {
 	 *
 	 * @return JSON-ready array
 	 */
-	public static function get_gallery_data() {
+	protected static function get_gallery_data() {
 		global $_gallery;
 
 		if (!checkAccess()) {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . getGalleryIndexURL() . '?embed" width="600" height="338" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink(getGalleryIndexURL(), 'iFrame') . '" width="600" height="338" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -530,7 +568,7 @@ class FLF_NGP_OEmbed {
 				'thumbnail_url' => '',
 				'thumbnail_width' => 0,
 				'thumbnail_height' => 0,
-				'description' => html_encode($_gallery->getDesc()),
+				'content' => html_encode($_gallery->getDesc()),
 		);
 
 		return $ret;
@@ -542,7 +580,7 @@ class FLF_NGP_OEmbed {
 	 * @param obj $album Album object
 	 * @return JSON-ready array
 	 */
-	public static function get_album_data($album) {
+	protected static function get_album_data($album) {
 		global $_current_image;
 
 		if (!$album) {
@@ -553,7 +591,7 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . $album->getLink() . '?embed" width="600" height="338" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($album->getLink(), 'iFrame') . '" width="600" height="338" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// Get image size
 		$image_size = (int) getOption('image_size');
@@ -576,7 +614,7 @@ class FLF_NGP_OEmbed {
 				'thumbnail_url' => FULLHOSTPATH . $thumbnail_url,
 				'thumbnail_width' => $thumb_size[0],
 				'thumbnail_height' => $thumb_size[1],
-				'description' => html_encode($album->getDesc()),
+				'content' => html_encode($album->getDesc()),
 		);
 
 		return $ret;
@@ -589,7 +627,7 @@ class FLF_NGP_OEmbed {
 	 * @param boolean $verbose true: return a larger set of the image's information
 	 * @return JSON-ready array
 	 */
-	public static function get_image_data($image) {
+	protected static function get_image_data($image) {
 		if (!$image) {
 			return;
 		}
@@ -601,7 +639,7 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		$html = '<iframe src="' . FULLHOSTPATH . $image->getLink() . '?embed" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($image->getLink(), 'iFrame') . '" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -616,7 +654,7 @@ class FLF_NGP_OEmbed {
 				'thumbnail_url' => FULLHOSTPATH . $image->getThumb(),
 				'thumbnail_width' => '" ' . $sizes[0] . ' "',
 				'thumbnail_height' => $sizes[1],
-				'description' => html_encode($image->getDesc()),
+				'content' => html_encode($image->getDesc()),
 		);
 
 		return $ret;
@@ -629,7 +667,7 @@ class FLF_NGP_OEmbed {
 	 * @param string $error_message message to return to the client
 	 * @return JSON-ready array
 	 */
-	public static function get_error_data($error_code, $error_message) {
+	protected static function get_error_data($error_code, $error_message) {
 		http_response_code($error_code);
 		$ret = array(
 				'error' => true,
@@ -648,18 +686,18 @@ class FLF_NGP_OEmbed {
 	 * @return string iFrame
 	 *
 	 */
-	public static function get_error_iframe($error_code, $error_message) {
+	protected static function get_error_iframe($error_code, $error_message) {
 		// Array with the data we need:
 		$ret = array(
 				'url_thumb' => FULLHOSTPATH . '/' . CORE_FOLDER . '/images/err-broken-page.png',
 				'url' => '',
+				'url_title' => '',
 				'thumb_size' => [100, 100],
 				'width' => 100,
 				'height' => 100,
 				'share_code' => '', // output to share via html or URL
 				'title' => $error_code,
-				'desc' => $error_message,
-				'gallery' => false,
+				'content' => $error_message
 		);
 
 		$iframe = self::use_default_iframe($ret);
@@ -671,25 +709,22 @@ class FLF_NGP_OEmbed {
 	 * Default iFrame
 	 * @return html
 	 */
-	public static function use_default_iframe($ret) {
+	protected static function use_default_iframe($ret) {
 		global $_gallery;
 
 		// Default icon
 		$gallery_icon = getPlugin('oembed/icon.png', TRUE, FULLWEBPATH);
 
 		// Featured Image and description depends on this being a gallery or not...
-		if ($ret['gallery']) {
+		if ($ret['url_thumb']) {
 			$featured_image = '<div class="npg-embed-featured-image square">
 				<a href="' . $ret['url'] . '" target="_top">
-					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '"/>
+					<img width="' . $ret['thumb_size'][0] . '" height="' . $ret['thumb_size'][1] . '" src="' . $ret['url_thumb'] . '" title="' . $ret['url_title'] . '" />
 				</a>
 			</div>';
 		} else {
 			$featured_image = '';
 		}
-
-		// Description may need truncation
-		$description = shortenContent($ret['desc'], 130, '...');
 
 		// Get CSS
 		ob_start();
@@ -700,12 +735,13 @@ class FLF_NGP_OEmbed {
 		$inserts = array(
 				'%GALLERYTITLE%' => getBareGalleryTitle(),
 				'%GALLERYINDEXURL%' => FULLHOSTPATH . html_encode(getGalleryIndexURL()),
+				'%GALLERY_URL_TITLE%' => gettext('Visit the gallery'),
 				'%GALLERYICON%' => $gallery_icon,
 				'%TITLE%' => $ret['title'],
 				'%IFRAMECSS%' => $iFrame_css,
-				'%IMAGE%' => $featured_image,
-				'%URL%' => $ret['url'],
-				'%DESCRIPTION%' => $description,
+				'%FEATURED_IMAGE%' => $featured_image,
+				'%OBJECT_URL%' => $ret['url'],
+				'%CONTENT%' => $ret['content'],
 				'%BUTTONTEXT%' => html_encodeTagged($ret['share_code'])
 		);
 
