@@ -148,7 +148,7 @@ class FLF_NGP_OEmbed {
 				$plain = 'embed=iFrame';
 				break;
 			case 'json':
-				$rewrite = 'json-oembed';
+				$rewrite = 'embed-json';
 				$plain = 'embed=json';
 				break;
 		}
@@ -210,8 +210,6 @@ class FLF_NGP_OEmbed {
 		self::execute_headers();
 
 		// the data structure we will return via JSON
-		$ret = array();
-
 		if (GALLERY_SECURITY === 'public') {
 			switch ($_gallery_page) {
 				case 'index.php':
