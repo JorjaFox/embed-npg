@@ -552,9 +552,9 @@ class FLF_NGP_OEmbed {
 				'width' => '600',
 				'height' => '300',
 				'html' => $html,
-				'thumbnail_url' => '',
-				'thumbnail_width' => 0,
-				'thumbnail_height' => 0,
+				'thumbnail_url' => FULLHOSTPATH . $_gallery->getSiteLogo(),
+				'thumbnail_width' => 282,
+				'thumbnail_height' => 78,
 				'content' => html_encode($_gallery->getDesc()),
 		);
 
