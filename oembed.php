@@ -81,6 +81,7 @@ class FLF_NGP_OEmbed {
 	function __construct() {
 		setOptionDefault('oEmbed_height', 338);
 		setOptionDefault('oEmbed_width', 600);
+		setOptionDefault('oEmbed_show_images', false);
 	}
 
 	function getOptionsSupported() {
@@ -97,6 +98,12 @@ class FLF_NGP_OEmbed {
 						'order' => 1.5,
 						'desc' => gettext('The width for the oEmbed iFrame.')
 				),
+				gettext('Show Images and Albums') => array(
+						'key' => 'oEmbed_show_images',
+						'type' => OPTION_TYPE_CHECKBOX,
+						'order' => 1.75,
+						'desc' => gettext('Display images along side subalbums. This may cause your iframes to overflow.')
+				),
 		);
 		return $options;
 	}
@@ -110,6 +117,13 @@ class FLF_NGP_OEmbed {
 		$iframe_width = (int)getOption('oEmbed_width');
 		if (!empty($iframe_width) && is_numeric($iframe_width)) {
 			setOption('oEmbed_width', $iframe_width);
+		}
+
+		$show_images = getOption('oEmbed_show_images');
+		if (!empty($show_images) && $show_images) {
+			setOption('oEmbed_show_images', true);
+		} else {
+			setOption('oEmbed_show_images', false);
 		}
 	}
 
@@ -418,7 +432,7 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Default description
-		$description = '<p>' . "\n" . shortenContent($album->getDesc(), 300, '...') . "\n" . '</p>';
+		$description = '<p>' . "\n" . shortenContent($album->getDesc(), 250, '...') . "\n" . '</p>';
 
 		// Featured thumbnail...
 		$thumb_image = $album->getAlbumThumbImage();
@@ -427,9 +441,13 @@ class FLF_NGP_OEmbed {
 		// Album URL
 		$album_url = FULLHOSTPATH . $album->getLink();
 
+		// Defaults
+		$subalbums = false;
+		$subimages = getOption('oEmbed_show_images');
+
 		if ($album->getNumAlbums()) {
 
-			// build an array of album thumgs
+			// build an array of album thumbs
 			$thumbs = array();
 
 			// Get all the albums sorted by last change date
@@ -454,7 +472,7 @@ class FLF_NGP_OEmbed {
 				// Start the build...
 				$description .= '<div class="npg-embed-row">' . "\n" . gettext('Subalbums:') . "\n" . '<div class="npg-embed-column">' . "\n";
 
-				// for each image, we want to craft the output.
+				// for each subalbum, we want to craft the output.
 				foreach ($thumbs as $one_thumb) {
 					$description .= '<a href="' . FULLHOSTPATH . $one_thumb['url'] . '" target="_top" title="' . html_encode($one_thumb['title']) . '" >' . "\n" .
 									'<img class="npg-embed-image" src="' . FULLHOSTPATH . html_encode($one_thumb['thumb']) . '" />' . "\n" .
@@ -462,10 +480,15 @@ class FLF_NGP_OEmbed {
 				}
 
 				$description .= '</div>' . "\n" . '</div>' . "\n";
+
+				// There are subalbums to show
+				$subalbums = true;
 			}
 		}
 
-		if ($album->getNumImages()) {
+		// If there are images, we will only show them IF:
+		// (There are NO subalbums) OR (there are subalbums AND we said to show images too)
+		if ($album->getNumImages() && (!$subalbums || ($subalbums && $subimages))) {
 
 			// We have images, so we show something different.
 			// The description is an image grid!
@@ -553,7 +576,7 @@ class FLF_NGP_OEmbed {
 		}
 
 		// Base description.
-		$description = '<p>' . "\n" . shortenContent($image->getDesc(), 300, '...') . "\n" . '</p>';
+		$description = '<p>' . "\n" . shortenContent($image->getDesc(), 250, '...') . "\n" . '</p>';
 
 		// Array with the data we need:
 		$ret = array(
@@ -642,8 +665,6 @@ class FLF_NGP_OEmbed {
 				'provider_url' => FULLHOSTPATH . getGalleryIndexURL(),
 				'title' => $album->getTitle(),
 				'type' => 'rich',
-				'width' => '600',
-				'height' => '300',
 				'html' => $html,
 				'thumbnail_url' => FULLHOSTPATH . $thumbnail_url,
 				'thumbnail_width' => $thumb_size[0],
@@ -682,8 +703,6 @@ class FLF_NGP_OEmbed {
 				'provider_url' => FULLHOSTPATH . getGalleryIndexURL(),
 				'title' => $image->getTitle(),
 				'type' => 'rich',
-				'width' => '600',
-				'height' => '300',
 				'html' => $html,
 				'thumbnail_url' => FULLHOSTPATH . $image->getThumb(),
 				'thumbnail_width' => '" ' . $sizes[0] . ' "',
