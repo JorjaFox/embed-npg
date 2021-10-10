@@ -109,12 +109,12 @@ class FLF_NGP_OEmbed {
 	}
 
 	function handleOptionSave($option, $currentValue) {
-		$iframe_height = (int)getOption('oEmbed_height');
+		$iframe_height = (int) getOption('oEmbed_height');
 		if (!empty($iframe_height) && is_numeric($iframe_height)) {
 			setOption('oEmbed_height', $iframe_height);
 		}
 
-		$iframe_width = (int)getOption('oEmbed_width');
+		$iframe_width = (int) getOption('oEmbed_width');
 		if (!empty($iframe_width) && is_numeric($iframe_width)) {
 			setOption('oEmbed_width', $iframe_width);
 		}
@@ -209,10 +209,7 @@ class FLF_NGP_OEmbed {
 				break;
 		}
 		if (MOD_REWRITE) {
-			if (WEBPATH) {
-				$link = str_replace( WEBPATH, '', $link );
-			}
-			$path = WEBPATH . '/' . $rewrite . $link;
+			$path = str_replace(WEBPATH . '/', WEBPATH . '/' . $rewrite . '/', $link);
 		} else {
 			if (strpos($link, '?')) {
 				$path = $link . '&' . $plain;
@@ -314,7 +311,7 @@ class FLF_NGP_OEmbed {
 		}
 
 		if (isset($canonicalurl)) {
-			$meta = '<link rel="alternate" type="application/json+oembed" href="' . FULLHOSTPATH . self::oEmbedLink($canonicalurl, 'json') . '" />';
+			$meta = '<link rel="alternate" type="application/json+oembed" href="' . FULLHOSTPATH . self::oEmbedLink($canonicalurl, 'json') . '" />' . "\n";
 			echo $meta;
 		}
 	}
@@ -608,8 +605,8 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$iframe_height = (int)getOption('oEmbed_height');
-		$iframe_width = (int)getOption('oEmbed_width');
+		$iframe_height = (int) getOption('oEmbed_height');
+		$iframe_width = (int) getOption('oEmbed_width');
 
 		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink(getGalleryIndexURL(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
@@ -645,8 +642,8 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$iframe_height = (int)getOption('oEmbed_height');
-		$iframe_width = (int)getOption('oEmbed_width');
+		$iframe_height = (int) getOption('oEmbed_height');
+		$iframe_width = (int) getOption('oEmbed_width');
 
 		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($album->getLink(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
@@ -691,8 +688,8 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		$iframe_height = (int)getOption('oEmbed_height');
-		$iframe_width = (int)getOption('oEmbed_width');
+		$iframe_height = (int) getOption('oEmbed_height');
+		$iframe_width = (int) getOption('oEmbed_width');
 
 		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($image->getLink(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
