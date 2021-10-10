@@ -44,9 +44,6 @@ body{
 	text-decoration:underline
 }
 
-.npg-embed-row {
-	clear: both;
-}
 .npg-embed-featured-image{
 	margin-bottom:20px
 }
@@ -64,8 +61,8 @@ body{
 }
 
 .npg-embed-image{
-	max-width: 100px;
-	margin: 10px;
+	max-width: 50px;
+	margin: 5px;
 }
 
 .npg-embed p{

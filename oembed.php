@@ -7,11 +7,11 @@
  * It intercepts the link processing and returns an object embedded result to
  * insert into the requesting document
  *
- * If <i>mod_rewrire</i> is enabled the URLs start with the embed request:
+ * If <i>mod_rewrite</i> is enabled the URLs start with the embed request:
  *
  * <dl>
  * 	<dt>For an iFrame version of the page</dt><dd>example.com/embed/albumb/image.html</dd>
- * 	<dt>For a json response</dt><dd>example.com/embed-json/albumb/image.html<\dd> (For a json response)
+ * 	<dt>For a json response</dt><dd>example.com/embed-json/albumb/image.html<\dd>
  * </dl>
  *
  * Otherwise use a query parameter appended to the link:
@@ -21,23 +21,27 @@
  * 	<dt>For a json response</dt><dd>example.com/albumb/image.html?embed=json</dd>
  * </dl>
  *
- * iFrame output can be customizes by providing theme based source files for the <i>icon</i>,
+ * Simple iFrame output (height and width) can be customized via the plugin page.
+ *
+ * Full iFrame output can be customized by providing theme based source files for the <i>icon</i>,
  * the <i>iFrame CSS</i>, and/or the <i>iFrame HTML</i>.
+ *
  * Create an <i>oembed</i> folder in your theme folder. If you wish to replace the
- * plugin's icon, name your icon replacement <var>icon.png</var> and place it in the folder.
- * To customize the layout copy the <i>iFrame.css</i> and <i>iFrame.html</i> files from the plugin to
- * your theme <i>oembed</i> folder. Modify these files to achieve the results you desire.
- * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> file that will be dynamically replaced
- * in the actual iFrame output by the specifics of the object you are linking. These meta-tokens are
- * capitalized text enclosed in percent signs. e.g. <var>%GALLERYTITLE%</var>
+ * plugin's icon, name your icon replacement <var>icon.png</var> and place it that folder.
  *
- *
+ * To customize the layout copy the <i>iFrame.css</i> and <i>iFrame.html</i> files from
+ * the plugin to your theme's <i>oembed</i> folder. Modify these files to achieve the
+ * results you desire.
+ * <b>Note:</b> there are meta-tokens in the <i>iFrame.html</i> file that will be
+ * dynamically replaced in the actual iFrame output by the specifics of the object you are
+ * linking. These meta-tokens are capitalized text enclosed in percent signs.
+ * e.g. <var>%GALLERYTITLE%</var>
  *
  * Forked from {@link https://github.com/deanmoses/zenphoto-json-rest-api}
  *
  * Original author Dean Moses (deanmoses)
  *
- * @author Mika Epstein (ipstenu) Mika Epstein (ipstenu), Dean Moses (deanmoses)
+ * @author Mika Epstein (ipstenu), Stephen Billard (sbillard), Dean Moses (deanmoses)
  * @copyright 2021 by Mika Epstein for use in {@link https://%GITHUB% netPhotoGraphics} and derivatives
  * @package plugins/oEmbed
  * @pluginCategory theme
@@ -51,6 +55,9 @@ if (defined('SETUP_PLUGIN')) {
 	$plugin_description = gettext('oEmbed API');
 	$plugin_version = '0.0.3';
 }
+
+// Options
+$option_interface = 'FLF_NGP_OEmbed';
 
 //	rewrite rules for cleaner URLs
 $_conf_vars['special_pages'][] = array('rewrite' => '^embed/*$',
@@ -70,6 +77,41 @@ npgFilters::register('load_theme_script', 'FLF_NGP_OEmbed::execute', 9999);
 npgFilters::register('theme_head', 'FLF_NGP_OEmbed::get_json_oembed');
 
 class FLF_NGP_OEmbed {
+
+	function __construct() {
+		setOptionDefault('oEmbed_height', 338);
+		setOptionDefault('oEmbed_width', 600);
+	}
+
+	function getOptionsSupported() {
+		$options = array(
+				gettext('iFrame Height') => array(
+						'key' => 'oEmbed_height',
+						'type' => OPTION_TYPE_NUMBER,
+						'order' => 1,
+						'desc' => gettext('The height for the oEmbed iFrame.')
+				),
+				gettext('iFrame Width') => array(
+						'key' => 'oEmbed_width',
+						'type' => OPTION_TYPE_NUMBER,
+						'order' => 1.5,
+						'desc' => gettext('The width for the oEmbed iFrame.')
+				),
+		);
+		return $options;
+	}
+
+	function handleOptionSave($option, $currentValue) {
+		$iframe_height = (int)getOption('oEmbed_height');
+		if (!empty($iframe_height) && is_numeric($iframe_height)) {
+			setOption('oEmbed_height', $iframe_height);
+		}
+
+		$iframe_width = (int)getOption('oEmbed_width');
+		if (!empty($iframe_width) && is_numeric($iframe_width)) {
+			setOption('oEmbed_width', $iframe_width);
+		}
+	}
 
 	/**
 	 * Execute header output for JSON calls.
@@ -138,7 +180,7 @@ class FLF_NGP_OEmbed {
 	 * changes link to an oEmbed link
 	 *
 	 * @param type $link object link
-	 * @param type $type iFrame for an iFrame link, json for a json-oembed link
+	 * @param type $type iFrame for an iFrame link, json for a json formed oembed link
 	 * @return string
 	 */
 	protected static function oEmbedLink($link, $type) {
@@ -153,7 +195,10 @@ class FLF_NGP_OEmbed {
 				break;
 		}
 		if (MOD_REWRITE) {
-			$path = '/' . $rewrite . $link;
+			if (WEBPATH) {
+				$link = str_replace( WEBPATH, '', $link );
+			}
+			$path = WEBPATH . '/' . $rewrite . $link;
 		} else {
 			if (strpos($link, '?')) {
 				$path = $link . '&' . $plain;
@@ -291,7 +336,7 @@ class FLF_NGP_OEmbed {
 			$_gallery->setSortType('lastchange', 'album');
 			$_gallery->setSortDirection(1, 'album');
 
-			$get_albums = array_slice($_gallery->getAlbums(), 0, 4);
+			$get_albums = array_slice($_gallery->getAlbums(), 0, 5);
 
 			foreach ($get_albums as $filename) {
 
@@ -307,7 +352,7 @@ class FLF_NGP_OEmbed {
 			if ($thumbs) {
 				// Start the build...
 				$description .= '<div class="npg-embed-row">' . "\n" .
-								gettext('albums') . "\n" .
+								gettext('Albums:') . "\n" .
 								'<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
@@ -391,7 +436,7 @@ class FLF_NGP_OEmbed {
 			$album->setSortType('lastchange', 'album');
 			$album->setSortDirection(1, 'album');
 
-			$get_albums = array_slice($album->getAlbums(), 0, 4);
+			$get_albums = array_slice($album->getAlbums(), 0, 5);
 
 			foreach ($get_albums as $filename) {
 
@@ -407,7 +452,7 @@ class FLF_NGP_OEmbed {
 			if ($thumbs) {
 
 				// Start the build...
-				$description .= '<div class="npg-embed-row">' . "\n" . gettext('subalbums') . "\n" . '<div class="npg-embed-column">' . "\n";
+				$description .= '<div class="npg-embed-row">' . "\n" . gettext('Subalbums:') . "\n" . '<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($thumbs as $one_thumb) {
@@ -430,7 +475,7 @@ class FLF_NGP_OEmbed {
 			// Get all the images sorted by last change date
 			$album->setSortType('lastchange', 'album');
 			$album->setSortDirection(1, 'album');
-			$get_images = array_slice($album->getImages(), 0, 4);
+			$get_images = array_slice($album->getImages(), 0, 5);
 			foreach ($get_images as $filename) {
 
 				// Create Image Object and get thumb:
@@ -445,7 +490,7 @@ class FLF_NGP_OEmbed {
 			if ($images) {
 
 				// Start the build...
-				$description .= '<div class="npg-embed-row">' . "\n" . gettext('images') . "\n" . '<div class="npg-embed-column">' . "\n";
+				$description .= '<div class="npg-embed-row">' . "\n" . gettext('Images:') . "\n" . '<div class="npg-embed-column">' . "\n";
 
 				// for each image, we want to craft the output.
 				foreach ($images as $one_image) {
@@ -540,7 +585,10 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink(getGalleryIndexURL(), 'iFrame') . '" width="600" height="338" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$iframe_height = (int)getOption('oEmbed_height');
+		$iframe_width = (int)getOption('oEmbed_width');
+
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink(getGalleryIndexURL(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($_gallery->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
@@ -549,8 +597,8 @@ class FLF_NGP_OEmbed {
 				'provider_url' => FULLHOSTPATH . getGalleryIndexURL(),
 				'title' => $_gallery->getTitle(),
 				'type' => 'rich',
-				'width' => '600',
-				'height' => '300',
+				'width' => $iframe_width,
+				'height' => $iframe_height,
 				'html' => $html,
 				'thumbnail_url' => FULLHOSTPATH . $_gallery->getSiteLogo(),
 				'thumbnail_width' => 282,
@@ -574,7 +622,10 @@ class FLF_NGP_OEmbed {
 			return self::get_error_data(403, gettext('Access forbidden.'));
 		}
 
-		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($album->getLink(), 'iFrame') . '" width="600" height="338" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$iframe_height = (int)getOption('oEmbed_height');
+		$iframe_width = (int)getOption('oEmbed_width');
+
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($album->getLink(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($album->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// Get image size
 		$image_size = (int) getOption('image_size');
@@ -619,7 +670,10 @@ class FLF_NGP_OEmbed {
 		// Get image size
 		$sizes = getSizeDefaultThumb();
 
-		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($image->getLink(), 'iFrame') . '" width="600" height="338" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
+		$iframe_height = (int)getOption('oEmbed_height');
+		$iframe_width = (int)getOption('oEmbed_width');
+
+		$html = '<iframe src="' . FULLHOSTPATH . self::oEmbedLink($image->getLink(), 'iFrame') . '" width="' . $iframe_width . '" height="' . $iframe_height . '" title="' . html_encode($image->getTitle()) . '" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" class="npg-embedded-content"></iframe>';
 
 		// the data structure we will be returning
 		$ret = array(
